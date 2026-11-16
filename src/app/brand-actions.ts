@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
@@ -55,24 +55,48 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     return { error: parsed.error.issues[0]?.message ?? "Invalid form", values };
   }
   const id = String(form.get("id") ?? "");
+  const echo = () => Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  const data = { ...parsed.data, domain: cleanDomain(parsed.data.domain) };
+
+  // Names are unique (case-insensitive here, so "dahon" can't sneak in next to "Dahon").
+  const [taken] = await db.select({ id: brands.id }).from(brands)
+    .where(and(sql`lower(${brands.name}) = lower(${data.name})`, id ? ne(brands.id, Id.parse(id)) : undefined));
+  if (taken) return { error: `A brand called ${data.name} already exists.`, values: echo() };
+
+  let createdId: string | null = null;
   try {
     if (id) {
       const [current] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
+      if (!current) return { error: "This brand no longer exists.", values: echo() };
       // Editing the voice guide bumps its version, so drafts show which guide wrote them.
-      const voiceVersion = current.voiceGuide !== parsed.data.voiceGuide ? current.voiceVersion + 1 : current.voiceVersion;
-      await db.update(brands).set({ ...parsed.data, voiceVersion }).where(eq(brands.id, current.id));
-      revalidatePath("/", "layout");
-            return { saved: true };
+      const voiceVersion = current.voiceGuide !== data.voiceGuide ? current.voiceVersion + 1 : current.voiceVersion;
+      await db.update(brands).set({ ...data, voiceVersion }).where(eq(brands.id, current.id));
+    } else {
+      const [created] = await db.insert(brands).values(data).returning({ id: brands.id });
+      createdId = created.id;
     }
-    const [created] = await db.insert(brands).values(parsed.data).returning();
-    revalidatePath("/", "layout");
-    redirect(`/b/${created.id}`);
   } catch (e) {
-    if (e instanceof Error && /brands_name_unique|duplicate key/.test(e.message)) {
-      return { error: "A brand with this name already exists.", values: Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)])) };
-    }
+    // Safety net for a race (two saves at once): the database's unique-name rule.
+    if (isUniqueViolation(e)) return { error: `A brand called ${data.name} already exists.`, values: echo() };
     throw e;
   }
+  revalidatePath("/", "layout");
+  if (createdId) redirect(`/b/${createdId}`); // outside try/catch: redirect() works by throwing
+  return { saved: true };
+}
+
+/** "https://usa.dahon.com/" → "usa.dahon.com" */
+function cleanDomain(d: string | undefined) {
+  if (!d) return undefined;
+  return d.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/.*$/, "").toLowerCase() || undefined;
+}
+
+/** Postgres unique violation (23505), wherever the driver nests it. */
+function isUniqueViolation(e: unknown): boolean {
+  for (let cur: unknown = e, i = 0; cur && i < 5; cur = (cur as { cause?: unknown }).cause, i++) {
+    if ((cur as { code?: string }).code === "23505") return true;
+  }
+  return false;
 }
 
 export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEnabled", value: boolean) {
