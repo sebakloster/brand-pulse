@@ -8,6 +8,27 @@
       "when": 1794841271700,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794841815222,
+      "tag": "0001_mentions_brand_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794841870316,
+      "tag": "0002_bot_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794841983496,
+      "tag": "0003_brand_subreddits",
+      "breakpoints": true
     }
   ]
 }

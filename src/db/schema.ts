@@ -5,7 +5,7 @@ import {
 
 export const mentionKind = pgEnum("mention_kind", ["post", "comment"]);
 export const pipelineStatus = pgEnum("pipeline_status", [
-  "new", "filtered", "candidate", "irrelevant", "relevant", "triaged", "triage_failed", "invalid",
+  "new", "filtered", "context", "candidate", "irrelevant", "relevant", "triaged", "triage_failed", "invalid",
 ]);
 export const userStatus = pgEnum("user_status", ["open", "discarded", "replied", "handled"]);
 export const runStatus = pgEnum("run_status", ["starting", "running", "succeeded", "failed", "timed_out"]);
@@ -18,12 +18,13 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull(
 
 export const brands = pgTable("brands", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   domain: text("domain"),
   description: text("description").notNull().default(""),
   searchTerms: text("search_terms").array().notNull().default([]),
   exclusionTerms: text("exclusion_terms").array().notNull().default([]),
   blockedSubreddits: text("blocked_subreddits").array().notNull().default([]),
+  brandSubreddits: text("brand_subreddits").array().notNull().default([]),
   voiceGuide: text("voice_guide").notNull().default(""),
   voiceVersion: integer("voice_version").notNull().default(1),
   neverDo: text("never_do").array().notNull().default([]),
@@ -61,7 +62,8 @@ export const rawItems = pgTable("raw_items", {
 });
 
 export const mentions = pgTable("mentions", {
-  redditId: text("reddit_id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  redditId: text("reddit_id").notNull(), // t3_ / t1_ prefixed
   brandId: uuid("brand_id").notNull().references(() => brands.id),
   kind: mentionKind("kind").notNull(),
   postId: text("post_id").notNull(), // the thread; equals redditId for posts
@@ -77,6 +79,8 @@ export const mentions = pgTable("mentions", {
   numComments: integer("num_comments"),
   isDirectMatch: boolean("is_direct_match").notNull().default(false),
   limitedContext: boolean("limited_context").notNull().default(false),
+  upvoteRatio: real("upvote_ratio"),
+  commentsPerHour: real("comments_per_hour"), // from the Actor at fetch time; first-sight spike signal
   pipelineStatus: pipelineStatus("pipeline_status").notNull().default("new"),
   filteredReason: text("filtered_reason"),
   language: text("language"),
@@ -84,16 +88,19 @@ export const mentions = pgTable("mentions", {
   discardReason: text("discard_reason"),
   followed: boolean("followed").notNull().default(false),
   isDeleted: boolean("is_deleted").notNull().default(false),
+  isBotLike: boolean("is_bot_like").notNull().default(false),
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
+  // The same Reddit item can mention two tracked brands.
+  uniqueIndex("mentions_brand_reddit_idx").on(t.brandId, t.redditId),
   index("mentions_brand_pipeline_idx").on(t.brandId, t.pipelineStatus),
   index("mentions_post_idx").on(t.postId),
 ]);
 
 export const triage = pgTable("triage", {
   id: uuid("id").primaryKey().defaultRandom(),
-  mentionId: text("mention_id").notNull().references(() => mentions.redditId),
+  mentionId: uuid("mention_id").notNull().references(() => mentions.id),
   sentiment: integer("sentiment").notNull(), // -2..+2
   topic: text("topic").notNull(),
   intent: text("intent").notNull(),
@@ -109,7 +116,7 @@ export const triage = pgTable("triage", {
 
 export const drafts = pgTable("drafts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  mentionId: text("mention_id").notNull().references(() => mentions.redditId),
+  mentionId: uuid("mention_id").notNull().references(() => mentions.id),
   aiText: text("ai_text"),
   userInput: text("user_input"),
   improvedText: text("improved_text"),

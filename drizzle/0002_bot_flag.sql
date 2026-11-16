@@ -1,0 +1,1 @@
+ALTER TABLE "mentions" ADD COLUMN "is_bot_like" boolean DEFAULT false NOT NULL;

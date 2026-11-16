@@ -10,10 +10,15 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:check": "tsx scripts/db-check.mts"
+    "db:check": "tsx scripts/db-check.mts",
+    "test": "vitest run",
+    "db:seed": "tsx scripts/seed.mts",
+    "ingest:fixture": "tsx scripts/ingest-fixture.mts",
+    "inspect": "tsx scripts/inspect.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
+    "apify-client": "^2.26.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
     "react": "19.3.0",
@@ -22,7 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^18.0.10",
@@ -31,6 +36,7 @@
     "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   }
 }

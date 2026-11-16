@@ -1,0 +1,1 @@
+ALTER TABLE "brands" ADD COLUMN "brand_subreddits" text[] DEFAULT '{}' NOT NULL;
