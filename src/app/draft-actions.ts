@@ -1,0 +1,46 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { desc, eq } from "drizzle-orm";
+import { z } from "zod";
+import { db, schema } from "@/db";
+import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { generateDraft, runChecks } from "@/lib/drafts/generate";
+
+const { brands, drafts, mentions, triage } = schema;
+const Id = z.uuid();
+
+async function requireSession() {
+  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
+}
+
+/** New suggested draft, or the user's words rewritten in the brand voice ("Improve"). */
+export async function draftReply(mentionId: string, userInput?: string) {
+  await requireSession();
+  const input = userInput?.trim() ? z.string().max(1500).parse(userInput.trim()) : undefined;
+  await generateDraft(Id.parse(mentionId), input);
+  revalidatePath(`/m/${mentionId}`);
+}
+
+/** Re-run the code checks on text the user edited by hand (no LLM call). */
+export async function checkText(mentionId: string, text: string) {
+  await requireSession();
+  const [m] = await db.select().from(mentions).where(eq(mentions.id, Id.parse(mentionId)));
+  const [brand] = await db.select().from(brands).where(eq(brands.id, m.brandId));
+  const [t] = await db.select().from(triage).where(eq(triage.mentionId, m.id)).orderBy(desc(triage.createdAt)).limit(1);
+  return runChecks(z.string().max(5000).parse(text), brand, t?.riskFlags ?? []);
+}
+
+/** Saves the final text. "copied" when the user copies it to post; "replied" when they confirm it's posted. */
+export async function saveDraftStatus(draftId: string, finalText: string, status: "copied" | "replied") {
+  await requireSession();
+  const [d] = await db.update(drafts)
+    .set({ finalText: z.string().max(5000).parse(finalText), status: z.enum(["copied", "replied"]).parse(status) })
+    .where(eq(drafts.id, Id.parse(draftId))).returning();
+  if (status === "replied") {
+    await db.update(mentions).set({ userStatus: "replied" }).where(eq(mentions.id, d.mentionId));
+    revalidatePath("/queue");
+  }
+  revalidatePath(`/m/${d.mentionId}`);
+}

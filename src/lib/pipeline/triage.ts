@@ -43,7 +43,7 @@ function renderMention(m: Mention, tag: "item" | "comment", extra = "", brandRe:
   ].join("\n");
 }
 
-async function buildThreadPrompt(brandId: string, postId: string, items: Mention[], brandRe: RegExp | null) {
+export async function buildThreadPrompt(brandId: string, postId: string, items: Mention[], brandRe: RegExp | null) {
   const [post] = await db.select().from(mentions)
     .where(and(eq(mentions.brandId, brandId), eq(mentions.redditId, postId)));
   const itemIds = new Set(items.map((i) => i.redditId));

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionBadge, Chip, ImportanceBadge, RiskFlags, SentimentDot } from "@/components/badges";
 import { FollowButton } from "@/components/follow-button";
+import { ReplyPanel } from "@/components/reply-panel";
+import { latestDraft } from "@/lib/drafts/generate";
 import { timeAgo } from "@/lib/labels";
 import { getThread, type ThreadNode } from "@/lib/queries";
 
@@ -49,6 +51,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const thread = await getThread(id);
   if (!thread) notFound();
   const { post, comments, focusId } = thread;
+  const focus = post?.id === focusId ? post : comments.find((c) => c.id === focusId) ?? null;
+  const draft = focus ? await latestDraft(focus.id) : null;
 
   // Build the reply tree from parent ids. Comments whose parent we don't have go to the top level.
   const ids = new Set(comments.map((c) => c.redditId));
@@ -100,9 +104,17 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         </div>
       </section>
 
-      <section className="rounded-3xl border border-dashed border-border p-4 text-sm text-muted sm:p-6">
-        Reply drafting: suggested reply, &ldquo;say it in your words&rdquo;, Improve, copy &amp; open on Reddit.
-      </section>
+      {focus && (focus.importance || focus.pipelineStatus === "triage_failed") && (
+        <ReplyPanel
+          key={`${focus.id}:${draft?.id ?? "none"}`}
+          mentionId={focus.id}
+          redditUrl={focus.url}
+          recommended={focus.action === "reply"}
+          triageReason={focus.reason}
+          replied={focus.userStatus === "replied"}
+          draft={draft ? { ...draft, createdAt: draft.createdAt.toISOString(), checks: draft.checks as never } : null}
+        />
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted">

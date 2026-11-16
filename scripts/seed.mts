@@ -16,6 +16,8 @@ export async function seed() {
         brandSubreddits: PELOTON.brandSubreddits,
         neverDo: PELOTON.neverDo,
         supportUrl: PELOTON.supportUrl,
+        voiceGuide: PELOTON.voiceGuide,
+        voiceVersion: PELOTON.voiceVersion,
       },
     })
     .returning();

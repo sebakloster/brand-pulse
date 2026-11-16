@@ -117,7 +117,7 @@ export async function getThread(mentionId: string) {
     join brands b on b.id = m.brand_id
     left join ${LATEST_TRIAGE} t on t.mention_id = m.id
     where m.brand_id = ${focus.brand_id} and m.post_id = ${focus.post_id}
-      and not m.is_deleted
+      and not m.is_deleted and not (m.kind = 'comment' and m.is_bot_like)
     order by m.kind desc, m.created_at_reddit`)).rows as (ThreadNode & { upvoteRatio: number | null })[];
   const post = rows.find((r) => r.kind === "post") ?? null;
   const comments = rows.filter((r) => r.kind === "comment");

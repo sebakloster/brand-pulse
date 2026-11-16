@@ -7,6 +7,7 @@ import { applyRulesForBrand } from "./ingest";
 import { acquireLease, releaseLease } from "./lock";
 import { runRelevance } from "./relevance";
 import { runTriage } from "./triage";
+import { runDrafts } from "@/lib/drafts/generate";
 
 export const TICK_BUDGET_MS = 240_000; // stays under Vercel's 300s function limit
 const LEASE_MS = 300_000;
@@ -23,7 +24,8 @@ export async function runTick({ budgetMs = TICK_BUDGET_MS } = {}) {
             const rules = await applyRulesForBrand(brand.id);
       const relevance = await runRelevance(brand.id, deadline);
       const triage = deadline.passed ? null : await runTriage(brand.id, deadline);
-      report[brand.name] = { rules, relevance, triage };
+      const drafts = deadline.passed ? null : await runDrafts(brand.id, deadline);
+      report[brand.name] = { rules, relevance, triage, drafts };
     }
     return report;
   } finally {

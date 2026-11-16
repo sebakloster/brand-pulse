@@ -1,3 +1,5 @@
+import { PELOTON_VOICE, PELOTON_VOICE_VERSION } from "./peloton-voice";
+
 // Seed config for the demo brand. Exclusions and blocked subreddits come
 // straight from the false positives found in the real dataset.
 // The voice guide is provisional until the client approves it.
@@ -40,4 +42,6 @@ export const PELOTON = {
     "posts in competitor, racing or unrelated communities",
   ],
   supportUrl: "https://support.onepeloton.com",
+  voiceGuide: PELOTON_VOICE,
+  voiceVersion: PELOTON_VOICE_VERSION,
 };
