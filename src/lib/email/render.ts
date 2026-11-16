@@ -1,6 +1,6 @@
 // Pure renderers for the daily digest and the spike alert (unit-tested).
 // One email a day, all brands: do I need to act, where, how important.
-import { ACTIONS, ROUTES } from "@/lib/labels";
+import { URGENCY, nextStep } from "@/lib/labels";
 import { esc } from "./send";
 
 export type DigestItem = {
@@ -25,15 +25,14 @@ const COLORS = { P0: "#ef4444", P1: "#f97316", P2: "#eab308", P3: "#71717a" } as
 const MAX_ITEMS = 8;
 
 function actionText(i: Pick<DigestItem, "action" | "routeTo">) {
-  const route = i.routeTo ? ROUTES[i.routeTo] ?? i.routeTo : null;
-  return route ? `${ACTIONS[i.action]} → ${route}` : ACTIONS[i.action];
+  return nextStep(i.action, i.routeTo);
 }
 
 export function digestSubject(brands: DigestBrand[], date: string) {
   const p0 = brands.reduce((n, b) => n + b.counts.P0 + b.spikes.length, 0);
   const p1 = brands.reduce((n, b) => n + b.counts.P1, 0);
   if (p0 + p1 === 0) return `Reddit digest ${date}: nothing urgent`;
-  return `Reddit digest ${date}: ${[p0 && `${p0} act now`, p1 && `${p1} today`].filter(Boolean).join(", ")}`;
+  return `Reddit digest ${date}: ${[p0 && `${p0} urgent`, p1 && `${p1} for today`].filter(Boolean).join(", ")}`;
 }
 
 export function renderDigest(brands: DigestBrand[], date: string, app: string) {
@@ -49,7 +48,7 @@ export function renderDigest(brands: DigestBrand[], date: string, app: string) {
   if (quiet) text.push("Quiet day: nothing needs you.", "");
 
   for (const b of brands) {
-    const summary = `${b.counts.P0} act now · ${b.counts.P1} today · ${b.counts.P2} when possible · ${b.counts.replies} reply suggestions · ${b.newToday} new in 24h`;
+    const summary = `${b.counts.P0} urgent · ${b.counts.P1} for today · ${b.counts.P2} when you can · ${b.counts.replies} reply suggestions · ${b.newToday} new in 24h`;
     html.push(`<h2 style="font-size:16px;margin:24px 0 4px">${esc(b.name)}</h2><p style="color:#a1a1aa;margin:0 0 12px;font-size:13px">${summary}</p>`);
     text.push(`== ${b.name} ==`, summary);
     for (const s of b.spikes) {
@@ -63,9 +62,9 @@ export function renderDigest(brands: DigestBrand[], date: string, app: string) {
     const shown = b.items.slice(0, MAX_ITEMS);
     for (const i of shown) {
       html.push(`<div style="border:1px solid #27272a;border-radius:12px;padding:10px 12px;margin:0 0 8px">` +
-        `<b style="color:${COLORS[i.importance]}">${i.importance}</b> · ${esc(actionText(i))} · r/${esc(i.subreddit)}${i.isNew ? " · <b>new</b>" : ""}<br>` +
+        `<b style="color:${COLORS[i.importance]}">${URGENCY[i.importance].label}</b> · ${esc(actionText(i))} · r/${esc(i.subreddit)}${i.isNew ? " · <b>new</b>" : ""}<br>` +
         `${esc(i.reason)} <a style="color:#3b82f6" href="${app}/m/${i.id}">Open</a></div>`);
-      text.push(`[${i.importance}] ${actionText(i)} · r/${i.subreddit}${i.isNew ? " · new" : ""}: ${i.reason} ${app}/m/${i.id}`);
+      text.push(`[${URGENCY[i.importance].label}] ${actionText(i)} · r/${i.subreddit}${i.isNew ? " · new" : ""}: ${i.reason} ${app}/m/${i.id}`);
     }
     if (b.items.length > shown.length) {
       html.push(`<p style="font-size:13px"><a style="color:#3b82f6" href="${app}/queue">+${b.items.length - shown.length} more in the queue</a></p>`);

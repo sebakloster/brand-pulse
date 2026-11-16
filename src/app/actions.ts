@@ -22,7 +22,7 @@ export async function discardMention(id: string, reason: keyof typeof DISCARD_RE
   await requireSession();
   z.enum(Object.keys(DISCARD_REASONS) as [keyof typeof DISCARD_REASONS]).parse(reason);
   await db.update(mentions).set({ userStatus: "discarded", discardReason: reason }).where(eq(mentions.id, Id.parse(id)));
-  revalidatePath("/queue");
+  revalidatePath("/", "layout");
 }
 
 export async function markMention(id: string, status: "handled" | "replied" | "open") {
@@ -31,7 +31,7 @@ export async function markMention(id: string, status: "handled" | "replied" | "o
   await db.update(mentions)
     .set({ userStatus: status, ...(status === "open" ? { discardReason: null } : {}) })
     .where(eq(mentions.id, Id.parse(id)));
-  revalidatePath("/queue");
+  revalidatePath("/", "layout");
 }
 
 /** Follow is a property of the thread: stored on the post mention. */
@@ -39,5 +39,5 @@ export async function setFollowed(postMentionId: string, followed: boolean) {
   await requireSession();
   await db.update(mentions).set({ followed: z.boolean().parse(followed) })
     .where(and(eq(mentions.id, Id.parse(postMentionId)), eq(mentions.kind, "post")));
-  revalidatePath("/queue");
+  revalidatePath("/", "layout");
 }

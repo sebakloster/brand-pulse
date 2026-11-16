@@ -61,13 +61,12 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
       // Editing the voice guide bumps its version, so drafts show which guide wrote them.
       const voiceVersion = current.voiceGuide !== parsed.data.voiceGuide ? current.voiceVersion + 1 : current.voiceVersion;
       await db.update(brands).set({ ...parsed.data, voiceVersion }).where(eq(brands.id, current.id));
-      revalidatePath(`/brands/${id}`);
-      revalidatePath("/brands");
-      return { saved: true };
+      revalidatePath("/", "layout");
+            return { saved: true };
     }
     const [created] = await db.insert(brands).values(parsed.data).returning();
-    revalidatePath("/brands");
-    redirect(`/brands/${created.id}`);
+    revalidatePath("/", "layout");
+    redirect(`/b/${created.id}`);
   } catch (e) {
     if (e instanceof Error && /brands_name_unique|duplicate key/.test(e.message)) {
       return { error: "A brand with this name already exists.", values: Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)])) };
@@ -80,7 +79,7 @@ export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEna
   await requireSession();
   await db.update(brands).set({ [z.enum(["enabled", "livePollingEnabled"]).parse(flag)]: z.boolean().parse(value) })
     .where(eq(brands.id, Id.parse(id)));
-  revalidatePath("/brands");
+  revalidatePath("/", "layout");
 }
 
 /** "Run now": starts a search run, then keeps working after the response (up to ~4 min) to collect and process it. */
@@ -104,6 +103,6 @@ export async function runNow(id: string): Promise<{ ok: boolean; message: string
     }
     await runTick({ budgetMs: Math.max(30_000, until - Date.now()) });
   });
-  revalidatePath(`/brands/${id}`);
+  revalidatePath("/", "layout");
   return { ok: true, message: "Run started. Results appear here as it finishes (usually a few minutes)." };
 }

@@ -1,72 +1,77 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { Button, Description, Input, Label, TextArea, TextField, toast } from "@heroui/react";
+import { ChevronDown } from "@gravity-ui/icons";
 import { saveBrand, type BrandFormState } from "@/app/brand-actions";
 
 type Brand = {
   id?: string; name?: string; domain?: string | null; description?: string; searchTerms?: string[];
   exclusionTerms?: string[]; blockedSubreddits?: string[]; brandSubreddits?: string[]; neverDo?: string[];
-  voiceGuide?: string; voiceVersion?: number; supportUrl?: string | null; pollEveryHours?: number; backfillDays?: number;
+  voiceGuide?: string; supportUrl?: string | null; pollEveryHours?: number; backfillDays?: number;
 };
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-accent-from";
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({ name, label, hint, value, multiline, rows = 3, type = "text", placeholder }: {
+  name: string; label: string; hint?: string; value?: string | number; multiline?: boolean; rows?: number; type?: string; placeholder?: string;
+}) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-sm font-medium">{label}</span>
-      {hint && <span className="block text-xs text-muted">{hint}</span>}
-      {children}
-    </label>
+    <TextField name={name} defaultValue={value === undefined ? undefined : String(value)} type={type} className="w-full">
+      <Label>{label}</Label>
+      {multiline ? <TextArea rows={rows} placeholder={placeholder} /> : <Input placeholder={placeholder} />}
+      {hint && <Description>{hint}</Description>}
+    </TextField>
   );
 }
 
 export function BrandForm({ brand }: { brand?: Brand }) {
   const [state, action, pending] = useActionState<BrandFormState | undefined, FormData>(saveBrand, undefined);
+  const [advanced, setAdvanced] = useState(false);
   const b = brand ?? {};
-  const v = state?.values; // submitted values after an error (React 19 resets the form otherwise)
+  const v = state?.values; // what was typed, kept after a validation error
+
+  useEffect(() => {
+    if (state?.saved) toast.success("Saved");
+    if (state?.error) toast.danger(state.error);
+  }, [state]);
+
   return (
     <form action={action} className="space-y-5">
       {b.id && <input type="hidden" name="id" value={b.id} />}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Name"><input name="name" defaultValue={v?.name ?? b.name} required className={input} /></Field>
-        <Field label="Website"><input name="domain" defaultValue={v?.domain ?? b.domain ?? ""} placeholder="onepeloton.com" className={input} /></Field>
+        <Field name="name" label="Name" value={v?.name ?? b.name} placeholder="Peloton" />
+        <Field name="domain" label="Website" value={v?.domain ?? b.domain ?? ""} placeholder="onepeloton.com" />
       </div>
-      <Field label="What the brand is" hint="Used by the AI to tell the brand apart from other meanings of the word.">
-        <textarea name="description" defaultValue={v?.description ?? b.description} rows={3} required className={input} />
-      </Field>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Search terms" hint="Comma or line separated.">
-          <textarea name="searchTerms" defaultValue={v?.searchTerms ?? b.searchTerms?.join(", ")} rows={2} className={input} />
-        </Field>
-        <Field label="Exclusion phrases" hint="Only remove their own match (e.g. “le peloton”).">
-          <textarea name="exclusionTerms" defaultValue={v?.exclusionTerms ?? b.exclusionTerms?.join(", ")} rows={2} className={input} />
-        </Field>
-        <Field label="Blocked subreddits" hint="Where the word never means the brand.">
-          <textarea name="blockedSubreddits" defaultValue={v?.blockedSubreddits ?? b.blockedSubreddits?.join(", ")} rows={2} className={input} />
-        </Field>
-        <Field label="Brand communities" hint="Every post there counts, even without the word.">
-          <textarea name="brandSubreddits" defaultValue={v?.brandSubreddits ?? b.brandSubreddits?.join(", ")} rows={2} className={input} />
-        </Field>
+      <Field name="description" label="What the brand is" multiline
+        hint="Helps tell the brand apart from other meanings of the same word."
+        value={v?.description ?? b.description} />
+      <Field name="searchTerms" label="Search for" hint="Words to look for on Reddit, separated by commas."
+        value={v?.searchTerms ?? b.searchTerms?.join(", ")} placeholder="Peloton" />
+
+      <Button variant="ghost" size="sm" onPress={() => setAdvanced(!advanced)} aria-expanded={advanced}>
+        <ChevronDown className={`size-4 transition-transform duration-200 ${advanced ? "rotate-180" : ""}`} />
+        Advanced
+      </Button>
+
+      {/* Kept mounted (just hidden) so its values are always submitted. */}
+      <div className={advanced ? "animate-rise space-y-5" : "hidden"}>
+        <Field name="exclusionTerms" label="Ignore phrases" hint="Phrases that mean something else, e.g. “le peloton”."
+          value={v?.exclusionTerms ?? b.exclusionTerms?.join(", ")} multiline rows={2} />
+        <Field name="blockedSubreddits" label="Ignore these subreddits" hint="Communities where the word never means the brand."
+          value={v?.blockedSubreddits ?? b.blockedSubreddits?.join(", ")} multiline rows={2} />
+        <Field name="brandSubreddits" label="The brand's own communities" hint="Every post there counts, even if it doesn't name the brand."
+          value={v?.brandSubreddits ?? b.brandSubreddits?.join(", ")} multiline rows={2} />
+        <Field name="neverDo" label="The brand never…" hint="One rule per line."
+          value={v?.neverDo ?? b.neverDo?.join("\n")} multiline rows={4} />
+        <Field name="voiceGuide" label="Voice guide" hint="How replies should sound. Edits create a new version."
+          value={v?.voiceGuide ?? b.voiceGuide} multiline rows={8} />
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Field name="supportUrl" label="Support link" value={v?.supportUrl ?? b.supportUrl ?? ""} />
+          <Field name="pollEveryHours" label="Check every (hours)" type="number" value={v?.pollEveryHours ?? b.pollEveryHours ?? 6} />
+          <Field name="backfillDays" label="First check looks back (days)" type="number" value={v?.backfillDays ?? b.backfillDays ?? 2} />
+        </div>
       </div>
-      <Field label="The brand never…" hint="One rule per line. Used by triage and drafting.">
-        <textarea name="neverDo" defaultValue={v?.neverDo ?? b.neverDo?.join("\n")} rows={4} className={input} />
-      </Field>
-      <Field label={`Voice guide${b.voiceVersion ? ` (v${b.voiceVersion})` : ""}`} hint="Editing it creates a new version; drafts show which version wrote them.">
-        <textarea name="voiceGuide" defaultValue={v?.voiceGuide ?? b.voiceGuide} rows={10} className={`${input} font-mono text-xs`} />
-      </Field>
-      <div className="grid gap-5 sm:grid-cols-3">
-        <Field label="Support link" hint="The only link drafts may use."><input name="supportUrl" defaultValue={v?.supportUrl ?? b.supportUrl ?? ""} className={input} /></Field>
-        <Field label="Poll every (hours)" hint="When live polling is on."><input name="pollEveryHours" type="number" min={1} max={24} defaultValue={v?.pollEveryHours ?? b.pollEveryHours ?? 6} className={input} /></Field>
-        <Field label="First run looks back (days)"><input name="backfillDays" type="number" min={1} max={7} defaultValue={v?.backfillDays ?? b.backfillDays ?? 2} className={input} /></Field>
-      </div>
-      <div className="flex items-center gap-3">
-        <button disabled={pending} className="bg-gradient-accent rounded-full px-6 py-2.5 text-sm font-medium text-black disabled:opacity-60">
-          {pending ? "Saving…" : b.id ? "Save changes" : "Add brand"}
-        </button>
-        {state?.error && <p className="text-sm text-p0">{state.error}</p>}
-        {state?.saved && <p className="text-sm text-accent-to">Saved.</p>}
-      </div>
+
+      <Button type="submit" isPending={pending}>{b.id ? "Save changes" : "Add brand"}</Button>
     </form>
   );
 }

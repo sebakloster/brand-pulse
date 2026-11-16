@@ -1,22 +1,14 @@
 // Read-only queries for pages. Pages only read stored data; nothing here calls an LLM.
 import "server-only";
-import { sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
+import { eq, sql, type SQL } from "drizzle-orm";
+import { db, schema } from "@/db";
+import type { Action, Importance } from "@/lib/labels";
 
-export type Tab = "attention" | "reply" | "route" | "monitor" | "followed" | "all" | "done";
-export const TABS: { id: Tab; label: string }[] = [
-  { id: "attention", label: "Needs attention" },
-  { id: "reply", label: "Reply" },
-  { id: "route", label: "Route" },
-  { id: "monitor", label: "Monitor" },
-  { id: "followed", label: "Followed" },
-  { id: "all", label: "All" },
-  { id: "done", label: "Done" },
-];
+export type View = "todo" | "done";
 
-export type QueueItem = {
+export type InboxItem = {
   id: string;
-  brand: string;
+  brandId: string;
   kind: "post" | "comment";
   subreddit: string;
   author: string | null;
@@ -24,114 +16,102 @@ export type QueueItem = {
   body: string | null;
   url: string | null;
   createdAt: string;
-  score: number | null;
-  numComments: number | null;
   pipelineStatus: string;
   userStatus: "open" | "discarded" | "replied" | "handled";
-  discardReason: string | null;
   limitedContext: boolean;
   triageError: string | null;
-  threadId: string | null; // mention id of the post, when we have it
-  followed: boolean;
-  importance: "P0" | "P1" | "P2" | "P3" | null;
-  action: "reply" | "route" | "monitor" | "ignore" | null;
+  importance: Importance | null;
+  action: Action | null;
   routeTo: string | null;
   sentiment: number | null;
-  topic: string | null;
-  intent: string | null;
   riskFlags: string[] | null;
   reason: string | null;
-  spikeActive: boolean | null; // the item's thread is blowing up
-  spikeNegative: boolean | null;
-  spikeReason: string | null;
-  spikeSimulated: boolean | null;
+  threadSpiking: boolean | null;
 };
 
 // Latest triage per mention, whatever prompt version made it.
-const LATEST_TRIAGE = sql`(
-  select distinct on (mention_id) * from triage order by mention_id, created_at desc
-)`;
+const LATEST_TRIAGE = sql`(select distinct on (mention_id) * from triage order by mention_id, created_at desc)`;
 
-function tabFilter(tab: Tab): SQL {
-  switch (tab) {
-    case "attention":
-      // Spiking threads always need attention: the post itself, whatever its own triage said.
-      return sql`m.user_status = 'open' and (m.pipeline_status = 'triage_failed'
-        or (t.importance in ('P0','P1','P2') and t.action <> 'ignore')
-        or (m.kind = 'post' and m.spike_active))`;
-    case "reply": return sql`m.user_status = 'open' and t.action = 'reply'`;
-    case "route": return sql`m.user_status = 'open' and t.action = 'route'`;
-    case "monitor": return sql`m.user_status = 'open' and t.action = 'monitor'`;
-    case "followed": return sql`coalesce(p.followed, m.followed)`;
-    case "all": return sql`m.user_status = 'open'`;
-    case "done": return sql`m.user_status <> 'open'`;
-  }
-}
+// "To do": things a person should look at. FYI-level items and "no action" items stay out.
+const TODO = sql`m.user_status = 'open' and (m.pipeline_status = 'triage_failed'
+  or (t.importance in ('P0','P1','P2') and t.action <> 'ignore'))`;
+const DONE = sql`m.user_status <> 'open'`;
 
-const BASE = sql`
+const FROM = (brandId: string) => sql`
   from mentions m
-  join brands b on b.id = m.brand_id
   left join ${LATEST_TRIAGE} t on t.mention_id = m.id
   left join mentions p on p.brand_id = m.brand_id and p.reddit_id = m.post_id and p.kind = 'post'
-  where m.pipeline_status in ('triaged', 'triage_failed')`;
+  where m.brand_id = ${brandId} and m.pipeline_status in ('triaged', 'triage_failed')`;
 
-export const PAGE_SIZE = 30;
+const COLUMNS = sql`
+  m.id, m.brand_id as "brandId", m.kind, m.subreddit, m.author,
+  coalesce(p.title, m.title) as title, m.body, m.url, m.created_at_reddit as "createdAt",
+  m.pipeline_status as "pipelineStatus", m.user_status as "userStatus",
+  m.limited_context as "limitedContext", m.triage_error as "triageError",
+  t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.risk_flags as "riskFlags", t.reason,
+  p.spike_active as "threadSpiking"`;
 
-export async function getQueue(tab: Tab, page = 1): Promise<{ items: QueueItem[]; total: number }> {
-  const where = tabFilter(tab);
-  const rows = await db.execute(sql`
-    select m.id, b.name as brand, m.kind, m.subreddit, m.author,
-      coalesce(p.title, m.title) as title, m.body, m.url,
-      m.created_at_reddit as "createdAt", m.score, coalesce(p.num_comments, m.num_comments) as "numComments",
-      m.pipeline_status as "pipelineStatus", m.user_status as "userStatus", m.discard_reason as "discardReason",
-      m.limited_context as "limitedContext", m.triage_error as "triageError",
-      p.id as "threadId", coalesce(p.followed, m.followed) as followed,
-      t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.topic, t.intent,
-      t.risk_flags as "riskFlags", t.reason,
-      p.spike_active as "spikeActive", p.spike_negative as "spikeNegative", p.spike_reason as "spikeReason",
-      p.spike_simulated as "spikeSimulated"
-    ${BASE} and ${where}
-    order by
-      case when m.kind = 'post' and m.spike_active and m.spike_negative then 0
-           when m.kind = 'post' and m.spike_active then 1
-           when m.pipeline_status = 'triage_failed' then 2 else 3 end,
-      t.importance nulls last, m.created_at_reddit desc
-    limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`);
-  const [count] = (await db.execute(sql`select count(*)::int as n ${BASE} and ${where}`)).rows as { n: number }[];
-  return { items: rows.rows as QueueItem[], total: count.n };
+export async function listBrands() {
+  const brands = await db.select().from(schema.brands).orderBy(schema.brands.name);
+  const counts = (await db.execute(sql`
+    select m.brand_id,
+      count(*) filter (where ${TODO})::int as todo,
+      count(*) filter (where m.kind = 'post' and m.spike_active and m.user_status = 'open')::int as spikes
+    from mentions m left join ${LATEST_TRIAGE} t on t.mention_id = m.id
+    where m.pipeline_status in ('triaged', 'triage_failed')
+    group by m.brand_id`)).rows as { brand_id: string; todo: number; spikes: number }[];
+  const byBrand = new Map(counts.map((c) => [c.brand_id, c]));
+  return brands.map((b) => ({ ...b, todo: byBrand.get(b.id)?.todo ?? 0, spikes: byBrand.get(b.id)?.spikes ?? 0 }));
 }
 
-export async function getTabCounts(): Promise<Record<Tab, number>> {
-  const parts = TABS.map(({ id }) => sql`count(*) filter (where ${tabFilter(id)})::int as ${sql.identifier(id)}`);
-  const [row] = (await db.execute(sql`select ${sql.join(parts, sql`, `)} ${BASE}`)).rows;
-  return row as Record<Tab, number>;
+export async function getBrand(id: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  const [b] = await db.select().from(schema.brands).where(eq(schema.brands.id, id));
+  return b ?? null;
 }
 
-export type ThreadNode = QueueItem & { parentId: string | null; redditId: string; depth: number; isBotLike: boolean };
+export async function getInbox(brandId: string, view: View) {
+  const where: SQL = view === "todo" ? TODO : DONE;
+  const order = view === "todo"
+    ? sql`case when m.pipeline_status = 'triage_failed' then 1 else 0 end, t.importance nulls last, m.created_at_reddit desc`
+    : sql`m.last_seen_at desc`;
+  const items = (await db.execute(sql`select ${COLUMNS} ${FROM(brandId)} and ${where} order by ${order} limit 100`)).rows as InboxItem[];
+  const [c] = (await db.execute(sql`
+    select count(*) filter (where ${TODO})::int as todo, count(*) filter (where ${DONE})::int as done ${FROM(brandId)}`)).rows as { todo: number; done: number }[];
+  return { items, counts: c };
+}
 
-/** A thread: the post (if we have it) and every stored comment, with triage where it exists. */
+export type Spike = { id: string; title: string; subreddit: string; reason: string | null; negative: boolean; simulated: boolean };
+
+/** Threads that are blowing up right now (shown above the inbox). */
+export async function getSpikes(brandId: string) {
+  return (await db.execute(sql`
+    select id, title, subreddit, spike_reason as reason, spike_negative as negative, spike_simulated as simulated
+    from mentions where brand_id = ${brandId} and kind = 'post' and spike_active and user_status = 'open'
+    order by spike_negative desc, spike_rate desc nulls last`)).rows as Spike[];
+}
+
+export type ThreadNode = InboxItem & { parentId: string | null; redditId: string; score: number | null; numComments: number | null };
+
+/** The item, its post, and every stored comment in the thread. */
 export async function getThread(mentionId: string) {
+  if (!/^[0-9a-f-]{36}$/.test(mentionId)) return null;
   const [focus] = (await db.execute(sql`select brand_id, post_id from mentions where id = ${mentionId}`)).rows as
     { brand_id: string; post_id: string }[];
   if (!focus) return null;
   const rows = (await db.execute(sql`
-    select m.id, b.name as brand, m.kind, m.subreddit, m.author, m.title, m.body, m.url,
-      m.created_at_reddit as "createdAt", m.score, m.num_comments as "numComments",
-      m.pipeline_status as "pipelineStatus", m.user_status as "userStatus", m.discard_reason as "discardReason",
+    select m.id, m.brand_id as "brandId", m.kind, m.subreddit, m.author, m.title, m.body, m.url,
+      m.created_at_reddit as "createdAt", m.pipeline_status as "pipelineStatus", m.user_status as "userStatus",
       m.limited_context as "limitedContext", m.triage_error as "triageError",
-      null as "threadId", m.followed, m.parent_id as "parentId", m.reddit_id as "redditId", m.depth,
-      m.is_bot_like as "isBotLike", m.upvote_ratio as "upvoteRatio",
-      m.spike_active as "spikeActive", m.spike_negative as "spikeNegative", m.spike_reason as "spikeReason",
-      m.spike_simulated as "spikeSimulated", m.last_activity_at as "lastActivityAt",
-      t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.topic, t.intent,
-      t.risk_flags as "riskFlags", t.reason
-    from mentions m
-    join brands b on b.id = m.brand_id
-    left join ${LATEST_TRIAGE} t on t.mention_id = m.id
+      m.parent_id as "parentId", m.reddit_id as "redditId", m.score, m.num_comments as "numComments",
+      t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.risk_flags as "riskFlags", t.reason,
+      m.spike_active as "threadSpiking", m.spike_reason as "spikeReason", m.spike_simulated as "spikeSimulated"
+    from mentions m left join ${LATEST_TRIAGE} t on t.mention_id = m.id
     where m.brand_id = ${focus.brand_id} and m.post_id = ${focus.post_id}
       and not m.is_deleted and not (m.kind = 'comment' and m.is_bot_like)
-    order by m.kind desc, m.created_at_reddit`)).rows as (ThreadNode & { upvoteRatio: number | null })[];
+    order by m.kind desc, m.created_at_reddit`)).rows as (ThreadNode & { spikeReason: string | null; spikeSimulated: boolean })[];
+  const item = rows.find((r) => r.id === mentionId) ?? null;
   const post = rows.find((r) => r.kind === "post") ?? null;
   const comments = rows.filter((r) => r.kind === "comment");
-  return { post, comments, focusId: mentionId };
+  return { item, post, comments, brandId: focus.brand_id };
 }

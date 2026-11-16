@@ -20,7 +20,7 @@ export async function draftReply(mentionId: string, userInput?: string) {
   await requireSession();
   const input = userInput?.trim() ? z.string().max(1500).parse(userInput.trim()) : undefined;
   await generateDraft(Id.parse(mentionId), input);
-  revalidatePath(`/m/${mentionId}`);
+  revalidatePath("/", "layout");
 }
 
 /** Re-run the code checks on text the user edited by hand (no LLM call). */
@@ -40,7 +40,7 @@ export async function saveDraftStatus(draftId: string, finalText: string, status
     .where(eq(drafts.id, Id.parse(draftId))).returning();
   if (status === "replied") {
     await db.update(mentions).set({ userStatus: "replied" }).where(eq(mentions.id, d.mentionId));
-    revalidatePath("/queue");
+    revalidatePath("/", "layout");
   }
-  revalidatePath(`/m/${d.mentionId}`);
+  revalidatePath("/", "layout");
 }

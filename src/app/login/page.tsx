@@ -6,13 +6,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { next } = await searchParams;
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 px-4 py-16">
-      <div className="space-y-2">
+      <div className="animate-rise space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">
           Brand <span className="text-gradient">Pulse</span>
         </h1>
-        <p className="text-sm text-muted">Reddit brand monitoring. Enter the team password to continue.</p>
+        <p className="text-sm text-muted">Know what people say about your brand on Reddit.</p>
       </div>
-      <LoginForm next={next ?? "/"} />
+      <div className="animate-rise" style={{ animationDelay: "80ms" }}>
+        <LoginForm next={next ?? "/"} />
+      </div>
     </main>
   );
 }

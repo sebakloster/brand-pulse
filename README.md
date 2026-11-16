@@ -9,14 +9,14 @@ Reddit brand monitoring. Finds mentions of a brand on Reddit, shows how people f
 - **Triage:** per thread: sentiment, intent, risk flags, importance P0–P3, action (reply / route to a team / monitor / ignore) and a one-line reason.
 - **Spike detection:** comment velocity against the brand's baseline, computed in code from engagement snapshots.
 - **Reply drafts:** only for items worth replying to; versioned voice guide, "say it in your words → Improve", tone checks that re-run while editing.
-- **Queue and thread view:** discard with a reason, follow threads, copy & open on Reddit, mark replied. Mobile-friendly.
-- **Brands:** settings, tracking toggles, Run now, run log, real cost per brand (scraper + LLM) with a monthly spend guard.
+- **Per-brand inbox:** pick a brand, see what needs attention ("Urgent · Pass to security", "Today · Reply suggested"), open an item, reply or mark it done. Mobile-friendly.
+- **Brands:** settings, tracking toggles, "Check Reddit now", recent checks, real cost per brand (scraper + LLM) with a monthly spend guard.
 - **Email:** daily digest and instant spike alerts.
 - **Evals:** relevance and triage scored against hand-labeled items.
 
 ## Stack
 
-Next.js 16 (App Router) · TypeScript · Tailwind CSS · Drizzle ORM + Postgres (Neon) · Anthropic SDK (Claude Haiku 5.5 for relevance, Sonnet 5.5 for triage and drafts) · Apify · Resend · Vercel (Functions, Cron) · Vitest.
+Next.js 16 (App Router) · TypeScript · Tailwind CSS · HeroUI v3 · Drizzle ORM + Postgres (Neon) · Anthropic SDK (Claude Haiku 5.5 for relevance, Sonnet 5.5 for triage and drafts) · Apify · Resend · Vercel (Functions, Cron) · Vitest.
 
 ## How it works
 
@@ -74,7 +74,7 @@ Optional keys in `.env.local`:
 
 ```
 src/
-  app/              pages (queue, thread, brands, overview, settings, login), server actions, API routes
+  app/              pages (brands, brand inbox, mention, insights, settings, login), server actions, API routes
   components/       UI components
   db/               Drizzle schema and client
   lib/

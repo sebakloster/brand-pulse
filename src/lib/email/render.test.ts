@@ -20,8 +20,8 @@ describe("digest", () => {
       items: [{ id: "abc", importance: "P1", action: "reply", routeTo: "support", subreddit: "pelotoncycle", reason: "Screen failing", isNew: true }],
     });
     const { text } = renderDigest([b], "2026-11-16", "https://app");
-    expect(text).toContain("[P1] Reply → Support · r/pelotoncycle · new: Screen failing https://app/m/abc");
-    expect(digestSubject([b], "2026-11-16")).toBe("Reddit digest 2026-11-16: 1 act now, 2 today");
+    expect(text).toContain("[Today] Reply suggested · r/pelotoncycle · new: Screen failing https://app/m/abc");
+    expect(digestSubject([b], "2026-11-16")).toBe("Reddit digest 2026-11-16: 1 urgent, 2 for today");
   });
 
   it("escapes Reddit text in HTML", () => {
