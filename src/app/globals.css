@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* Dark only. Inspired by avenuez.com: black, blue→green gradient, pills. */
+:root {
+  --background: #000000;
+  --surface: #0f0f10;
+  --surface-2: #18181b;
+  --border: #27272a;
+  --foreground: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent-from: #3b82f6; /* blue */
+  --accent-to: #22c55e;   /* green */
+  --p0: #ef4444;
+  --p1: #f97316;
+  --p2: #eab308;
+  --p3: #71717a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent-from: var(--accent-from);
+  --color-accent-to: var(--accent-to);
+  --color-p0: var(--p0);
+  --color-p1: var(--p1);
+  --color-p2: var(--p2);
+  --color-p3: var(--p3);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html { color-scheme: dark; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-accent {
+  background-image: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+}
