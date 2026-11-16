@@ -44,9 +44,10 @@ export function ReplyPanel(props: {
   recommended: boolean;
   triageReason: string | null;
   replied: boolean;
+  spiking?: boolean;
   draft: Draft | null;
 }) {
-  const { mentionId, redditUrl, recommended, triageReason, replied, draft } = props;
+  const { mentionId, redditUrl, recommended, triageReason, replied, draft, spiking } = props;
   const [open, setOpen] = useState(recommended || !!draft);
   const [text, setText] = useState(draft?.finalText ?? "");
   const [checks, setChecks] = useState<Check[]>(draft?.checks?.items ?? []);
@@ -73,8 +74,10 @@ export function ReplyPanel(props: {
     return (
       <section className="rounded-3xl border border-dashed border-border p-4 text-sm sm:p-6">
         <p className="text-muted">
-          <span className="text-foreground">The AI recommends not replying here.</span>
-          {triageReason ? ` ${triageReason}` : ""}
+          <span className="text-foreground">
+            {spiking ? "This thread is blowing up: no item-by-item replies." : "The AI recommends not replying here."}
+          </span>
+          {spiking ? " A human-approved holding statement is the safer move." : triageReason ? ` ${triageReason}` : ""}
         </p>
         <button onClick={() => setOpen(true)} className="mt-3 rounded-full bg-surface-2 px-4 py-1.5 hover:bg-border">
           Draft a reply anyway

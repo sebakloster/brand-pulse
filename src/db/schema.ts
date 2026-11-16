@@ -50,7 +50,10 @@ export const runs = pgTable("runs", {
   itemsCount: integer("items_count"),
   capHit: boolean("cap_hit").notNull().default(false),
   costUsd: real("cost_usd"),
+  costDetail: jsonb("cost_detail"), // raw cost fields from Apify, so the number can be audited
   error: text("error"),
+  warning: text("warning"), // e.g. a cap was hit, so results may be incomplete
+  manual: boolean("manual").notNull().default(false), // "Run now" vs scheduled
 }, (t) => [index("runs_brand_status_idx").on(t.brandId, t.status)]);
 
 // Never modified, except text wiped when Reddit shows the item was deleted.
@@ -92,6 +95,14 @@ export const mentions = pgTable("mentions", {
   aiAttempts: integer("ai_attempts").notNull().default(0), // failed AI calls; stops endless retries
   triageError: text("triage_error"),
   relevanceReason: text("relevance_reason"), // why the model judged it off-brand
+  // Spike state, posts only. Computed in code from snapshots.
+  spikeActive: boolean("spike_active").notNull().default(false),
+  spikeSince: timestamp("spike_since", { withTimezone: true }),
+  spikeRate: real("spike_rate"), // comments per hour
+  spikeReason: text("spike_reason"),
+  spikeNegative: boolean("spike_negative").notNull().default(false),
+  spikeSimulated: boolean("spike_simulated").notNull().default(false), // demo only, labeled in the UI
+  lastActivityAt: timestamp("last_activity_at", { withTimezone: true }), // comment count went up (followed threads)
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -138,7 +149,7 @@ export const snapshots = pgTable("snapshots", {
   numComments: integer("num_comments"),
   upvoteRatio: real("upvote_ratio"),
   simulated: boolean("simulated").notNull().default(false), // demo spike, labeled
-}, (t) => [index("snapshots_post_idx").on(t.postId, t.takenAt)]);
+}, (t) => [uniqueIndex("snapshots_post_time_idx").on(t.postId, t.takenAt)]);
 
 export const alerts = pgTable("alerts", {
   id: uuid("id").primaryKey().defaultRandom(),

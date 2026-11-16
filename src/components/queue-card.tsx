@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { discardMention, markMention, setFollowed } from "@/app/actions";
-import { ActionBadge, Chip, ImportanceBadge, RiskFlags, SentimentDot } from "@/components/badges";
+import { ActionBadge, Chip, ImportanceBadge, RiskFlags, SentimentDot, SpikeBadge } from "@/components/badges";
 import { DISCARD_REASONS, type DiscardReason, timeAgo } from "@/lib/labels";
 import type { QueueItem } from "@/lib/queries";
 
@@ -36,6 +36,7 @@ export function QueueCard({ item }: { item: QueueItem }) {
         ) : (
           <ImportanceBadge value={item.importance} />
         )}
+        <SpikeBadge active={item.spikeActive} negative={item.spikeNegative} simulated={item.spikeSimulated} />
         <ActionBadge action={item.action} routeTo={item.routeTo} />
         <RiskFlags flags={item.riskFlags} />
         {item.limitedContext && <Chip className="text-muted" >Limited context</Chip>}
@@ -43,6 +44,9 @@ export function QueueCard({ item }: { item: QueueItem }) {
       </div>
 
       <Link href={href} className="mt-3 block space-y-1.5">
+        {item.spikeActive && item.kind === "post" && item.spikeReason && (
+          <p className="text-sm font-medium text-p1">Blowing up: {item.spikeReason}.</p>
+        )}
         <p className="font-medium leading-snug">
           {item.reason ?? item.triageError ?? "No reason recorded"}
         </p>

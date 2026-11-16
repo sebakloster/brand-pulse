@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionBadge, Chip, ImportanceBadge, RiskFlags, SentimentDot } from "@/components/badges";
+import { ActionBadge, Chip, ImportanceBadge, RiskFlags, SentimentDot, SpikeBadge } from "@/components/badges";
 import { FollowButton } from "@/components/follow-button";
 import { ReplyPanel } from "@/components/reply-panel";
 import { latestDraft } from "@/lib/drafts/generate";
@@ -93,6 +93,16 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
             We only have the comment that mentioned the brand; the rest of this thread wasn&apos;t fetched (limited context).
           </p>
         )}
+        {post?.spikeActive && (
+          <div className="mt-4 space-y-1 rounded-2xl border border-p1/40 bg-p1/10 p-3 text-sm">
+            <SpikeBadge active negative={post.spikeNegative} simulated={post.spikeSimulated} />
+            <p>{post.spikeReason}.</p>
+            <p className="text-muted">
+              Don&apos;t reply comment by comment while a thread is blowing up. Agree one holding statement with the client first.
+              {post.spikeSimulated ? " (Simulated for the demo: real engagement numbers were changed.)" : ""}
+            </p>
+          </div>
+        )}
         {post && <TriageBox n={post} />}
         <div className="mt-4 flex flex-wrap gap-2">
           {redditUrl && (
@@ -109,7 +119,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
           key={`${focus.id}:${draft?.id ?? "none"}`}
           mentionId={focus.id}
           redditUrl={focus.url}
-          recommended={focus.action === "reply"}
+          recommended={focus.action === "reply" && !post?.spikeActive}
+          spiking={!!post?.spikeActive}
           triageReason={focus.reason}
           replied={focus.userStatus === "replied"}
           draft={draft ? { ...draft, createdAt: draft.createdAt.toISOString(), checks: draft.checks as never } : null}

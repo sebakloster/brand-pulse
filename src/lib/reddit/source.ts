@@ -18,6 +18,7 @@ export type SearchInput = {
 export type RunState = {
   status: "running" | "succeeded" | "failed" | "timed_out";
   costUsd: number | null;
+  costDetail?: unknown; // raw fields the cost was computed from (audit trail)
   itemsCount: number | null;
   error: string | null;
 };
@@ -26,6 +27,8 @@ export interface RedditSource {
   readonly kind: "apify" | "fixture";
   /** Starts a search run and returns its id. Never waits for it to finish. */
   startSearch(input: SearchInput): Promise<{ externalId: string; input: unknown }>;
+  /** Re-fetches posts by URL with comments off: one cheap row per post, for engagement snapshots. */
+  startSnapshot(postUrls: string[], maxTotalChargeUsd: number): Promise<{ externalId: string; input: unknown }>;
   getRun(externalId: string): Promise<RunState>;
   /** Yields the run's items page by page. */
   items(externalId: string, pageSize?: number): AsyncGenerator<unknown[]>;
@@ -44,6 +47,11 @@ export class FixtureSource implements RedditSource {
     return { externalId: `fixture:${this.file}`, input: { ...input, fixture: this.file } };
   }
 
+  async startSnapshot(postUrls: string[]) {
+    // Replays only the fixture's posts: same numbers, so no spike unless simulated.
+    return { externalId: `fixture:${this.file}#posts`, input: { postUrls, fixture: this.file } };
+  }
+
   async getRun(externalId: string): Promise<RunState> {
     const items = await this.load(externalId);
     return { status: "succeeded", costUsd: 0, itemsCount: items.length, error: null };
@@ -55,8 +63,10 @@ export class FixtureSource implements RedditSource {
   }
 
   private async load(externalId: string): Promise<unknown[]> {
-    const file = path.basename(externalId.replace(/^fixture:/, "")); // no path traversal
-    return JSON.parse(await readFile(path.join(FIXTURE_DIR, file), "utf8"));
+    const [name, part] = externalId.replace(/^fixture:/, "").split("#");
+    const file = path.basename(name); // no path traversal
+    const all: unknown[] = JSON.parse(await readFile(path.join(FIXTURE_DIR, file), "utf8"));
+    return part === "posts" ? all.filter((i) => (i as { dataType?: string }).dataType === "post") : all;
   }
 }
 
@@ -102,10 +112,30 @@ export class ApifySource implements RedditSource {
     return { externalId: run.id, input: actorInput };
   }
 
+  async startSnapshot(postUrls: string[], maxTotalChargeUsd: number) {
+    const actorInput = {
+      startUrls: postUrls.map((url) => ({ url })),
+      crawlCommentsPerPost: false,
+      maxPostsCount: 1, // per URL
+      includeNSFW: false,
+      aiAnalysis: false,
+    };
+    const run = await this.client.actor(APIFY_ACTOR).start(actorInput, { maxTotalChargeUsd });
+    return { externalId: run.id, input: actorInput };
+  }
+
   async getRun(externalId: string): Promise<RunState> {
     const run = await this.client.run(externalId).get();
     if (!run) return { status: "failed", costUsd: null, itemsCount: null, error: "run not found" };
-    const costUsd = typeof run.usageTotalUsd === "number" ? run.usageTotalUsd : null;
+    // Pay-per-event Actor: what we pay is the charged events × their price, not platform usage.
+    const pricing = run.pricingInfo;
+    let costUsd: number | null = typeof run.usageTotalUsd === "number" ? run.usageTotalUsd : null;
+    if (pricing?.pricingModel === "PAY_PER_EVENT" && run.chargedEventCounts) {
+      const events = pricing.pricingPerEvent.actorChargeEvents;
+      costUsd = Object.entries(run.chargedEventCounts)
+        .reduce((sum, [name, count]) => sum + (events[name]?.eventPriceUsd ?? 0) * count, 0);
+    }
+    const costDetail = { usageTotalUsd: run.usageTotalUsd, chargedEventCounts: run.chargedEventCounts, pricingModel: pricing?.pricingModel };
     const map: Record<string, RunState["status"]> = {
       READY: "running", RUNNING: "running", SUCCEEDED: "succeeded",
       FAILED: "failed", ABORTING: "failed", ABORTED: "failed",
@@ -120,6 +150,7 @@ export class ApifySource implements RedditSource {
     return {
       status,
       costUsd,
+      costDetail,
       itemsCount,
       error: status === "failed" || status === "timed_out" ? (run.statusMessage ?? run.status) : null,
     };

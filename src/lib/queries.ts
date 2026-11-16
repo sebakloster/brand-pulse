@@ -41,6 +41,10 @@ export type QueueItem = {
   intent: string | null;
   riskFlags: string[] | null;
   reason: string | null;
+  spikeActive: boolean | null; // the item's thread is blowing up
+  spikeNegative: boolean | null;
+  spikeReason: string | null;
+  spikeSimulated: boolean | null;
 };
 
 // Latest triage per mention, whatever prompt version made it.
@@ -51,8 +55,10 @@ const LATEST_TRIAGE = sql`(
 function tabFilter(tab: Tab): SQL {
   switch (tab) {
     case "attention":
+      // Spiking threads always need attention: the post itself, whatever its own triage said.
       return sql`m.user_status = 'open' and (m.pipeline_status = 'triage_failed'
-        or (t.importance in ('P0','P1','P2') and t.action <> 'ignore'))`;
+        or (t.importance in ('P0','P1','P2') and t.action <> 'ignore')
+        or (m.kind = 'post' and m.spike_active))`;
     case "reply": return sql`m.user_status = 'open' and t.action = 'reply'`;
     case "route": return sql`m.user_status = 'open' and t.action = 'route'`;
     case "monitor": return sql`m.user_status = 'open' and t.action = 'monitor'`;
@@ -81,10 +87,14 @@ export async function getQueue(tab: Tab, page = 1): Promise<{ items: QueueItem[]
       m.limited_context as "limitedContext", m.triage_error as "triageError",
       p.id as "threadId", coalesce(p.followed, m.followed) as followed,
       t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.topic, t.intent,
-      t.risk_flags as "riskFlags", t.reason
+      t.risk_flags as "riskFlags", t.reason,
+      p.spike_active as "spikeActive", p.spike_negative as "spikeNegative", p.spike_reason as "spikeReason",
+      p.spike_simulated as "spikeSimulated"
     ${BASE} and ${where}
     order by
-      case when m.pipeline_status = 'triage_failed' then 1 else 2 end,
+      case when m.kind = 'post' and m.spike_active and m.spike_negative then 0
+           when m.kind = 'post' and m.spike_active then 1
+           when m.pipeline_status = 'triage_failed' then 2 else 3 end,
       t.importance nulls last, m.created_at_reddit desc
     limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`);
   const [count] = (await db.execute(sql`select count(*)::int as n ${BASE} and ${where}`)).rows as { n: number }[];
@@ -111,6 +121,8 @@ export async function getThread(mentionId: string) {
       m.limited_context as "limitedContext", m.triage_error as "triageError",
       null as "threadId", m.followed, m.parent_id as "parentId", m.reddit_id as "redditId", m.depth,
       m.is_bot_like as "isBotLike", m.upvote_ratio as "upvoteRatio",
+      m.spike_active as "spikeActive", m.spike_negative as "spikeNegative", m.spike_reason as "spikeReason",
+      m.spike_simulated as "spikeSimulated", m.last_activity_at as "lastActivityAt",
       t.importance, t.action, t.route_to as "routeTo", t.sentiment, t.topic, t.intent,
       t.risk_flags as "riskFlags", t.reason
     from mentions m

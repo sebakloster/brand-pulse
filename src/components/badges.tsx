@@ -43,3 +43,12 @@ export function RiskFlags({ flags }: { flags: string[] | null }) {
     <Chip key={f} className="border-p0/30 text-p0/90">⚑ {FLAGS[f] ?? f}</Chip>
   ));
 }
+
+export function SpikeBadge({ active, negative, simulated }: { active: boolean | null; negative: boolean | null; simulated?: boolean | null }) {
+  if (!active) return null;
+  return (
+    <Chip className={negative ? "border-p0/50 bg-p0/15 font-medium text-p0" : "border-p1/50 bg-p1/15 font-medium text-p1"}>
+      🔥 {negative ? "Negative spike" : "Thread spiking"}{simulated ? " · simulated" : ""}
+    </Chip>
+  );
+}

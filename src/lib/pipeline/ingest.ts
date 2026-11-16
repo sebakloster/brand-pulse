@@ -6,7 +6,7 @@ import { parseItem, type NormalizedMention } from "@/lib/reddit/normalize";
 import type { RedditSource } from "@/lib/reddit/source";
 import { applyRules, compileRules, type RuleOutcome } from "./rules";
 
-const { brands, mentions, rawItems, runs } = schema;
+const { brands, mentions, rawItems, runs, snapshots } = schema;
 const BATCH = 200;
 
 function chunks<T>(xs: T[], n = BATCH): T[][] {
@@ -78,6 +78,8 @@ export async function ingestRun(runId: string, source: RedditSource): Promise<In
           numComments: sql`coalesce(excluded.num_comments, ${mentions.numComments})`,
           upvoteRatio: sql`coalesce(excluded.upvote_ratio, ${mentions.upvoteRatio})`,
           lastSeenAt: sql`now()`,
+          // New comments on a thread we already had: "new activity" for followed threads.
+          lastActivityAt: sql`case when excluded.num_comments > ${mentions.numComments} then now() else ${mentions.lastActivityAt} end`,
           // Respect deletions: once Reddit shows it deleted, drop the text and keep it dropped.
           isDeleted: sql`${mentions.isDeleted} or excluded.is_deleted`,
           body: sql`case when ${mentions.isDeleted} or excluded.is_deleted then null else excluded.body end`,
@@ -85,7 +87,19 @@ export async function ingestRun(runId: string, source: RedditSource): Promise<In
       });
   }
 
-  // 3. Wipe text from raw payloads of deleted items too.
+  // 3. Engagement snapshot for every post seen.
+  const postSnaps = parsed.filter((p) => p.mention.kind === "post").map(({ mention: m }) => ({
+    postId: m.redditId,
+    takenAt: m.crawledAt ?? new Date(),
+    score: m.score,
+    numComments: m.numComments,
+    upvoteRatio: m.upvoteRatio,
+  }));
+  for (const batch of chunks(postSnaps)) {
+    await db.insert(snapshots).values(batch).onConflictDoNothing();
+  }
+
+  // 4. Wipe text from raw payloads of deleted items too.
   const deletedIds = parsed.filter((p) => p.mention.isDeleted).map((p) => p.mention.redditId);
   for (const batch of chunks(deletedIds)) {
     await db.update(rawItems)

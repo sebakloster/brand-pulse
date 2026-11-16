@@ -23,6 +23,7 @@ const PostItem = z.object({
   stickied: z.boolean().nullish(),
   distinguished: optStr,
   removalStatus: optStr,
+  crawledAt: optStr,
 }).loose();
 
 const CommentItem = z.object({
@@ -41,6 +42,7 @@ const CommentItem = z.object({
   stickied: z.boolean().nullish(),
   distinguished: optStr,
   postTitle: optStr, // only on comments that came from comment search; don't rely on it
+  crawledAt: optStr,
 }).loose();
 
 export const RawItem = z.discriminatedUnion("dataType", [PostItem, CommentItem]);
@@ -64,6 +66,7 @@ export type NormalizedMention = {
   commentsPerHour: number | null;
   isBotLike: boolean;
   isDeleted: boolean;
+  crawledAt: Date | null; // when the scraper saw it (snapshot time)
 };
 
 const DELETED = new Set(["[deleted]", "[removed]"]);
@@ -93,6 +96,7 @@ export function normalize(item: RawItem): NormalizedMention {
       upvoteRatio: item.upvoteRatio ?? null,
       commentsPerHour: item.commentsPerHour ?? null,
       isBotLike,
+      crawledAt: item.crawledAt ? new Date(item.crawledAt) : null,
       isDeleted:
         (item.removalStatus != null && item.removalStatus !== "active") ||
         DELETED.has((body ?? "").trim()) ||
@@ -121,6 +125,7 @@ export function normalize(item: RawItem): NormalizedMention {
     upvoteRatio: null,
     commentsPerHour: null,
     isBotLike,
+    crawledAt: item.crawledAt ? new Date(item.crawledAt) : null,
     isDeleted: DELETED.has((body ?? "").trim()) || author === "[deleted]",
   };
 }

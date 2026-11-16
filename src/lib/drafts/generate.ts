@@ -102,6 +102,9 @@ export async function runDrafts(brandId: string, deadline: Deadline, { concurren
     select m.id from mentions m join ${latest} t on t.mention_id = m.id
     where m.brand_id = ${brandId} and m.pipeline_status = 'triaged' and m.user_status = 'open'
       and t.action = 'reply' and m.ai_attempts < 2
+      -- No item-by-item drafts in a thread that is blowing up (holding statement instead)
+      and not exists (select 1 from mentions p where p.brand_id = m.brand_id and p.reddit_id = m.post_id
+                      and p.kind = 'post' and p.spike_active)
       and not exists (select 1 from drafts d where d.mention_id = m.id)
     limit 20`)).rows as { id: string }[];
   const stats = { drafted: 0, failed: 0 };
