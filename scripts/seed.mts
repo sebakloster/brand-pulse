@@ -14,6 +14,7 @@ export async function seed() {
         exclusionTerms: PELOTON.exclusionTerms,
         blockedSubreddits: PELOTON.blockedSubreddits,
         brandSubreddits: PELOTON.brandSubreddits,
+        neverDo: PELOTON.neverDo,
         supportUrl: PELOTON.supportUrl,
       },
     })

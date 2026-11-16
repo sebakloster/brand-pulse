@@ -14,9 +14,16 @@
     "test": "vitest run",
     "db:seed": "tsx scripts/seed.mts",
     "ingest:fixture": "tsx scripts/ingest-fixture.mts",
-    "inspect": "tsx scripts/inspect.mts"
+    "inspect": "tsx scripts/inspect.mts",
+    "tick": "tsx scripts/tick.mts",
+    "triage:report": "tsx scripts/triage-report.mts",
+    "find": "tsx scripts/find.mts",
+    "show": "tsx scripts/show.mts",
+    "reset:ai": "tsx scripts/reset-ai.mts",
+    "recheck:irrelevant": "tsx scripts/recheck-irrelevant.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@neondatabase/serverless": "^1.2.1",
     "apify-client": "^2.26.0",
     "drizzle-orm": "^0.45.4",

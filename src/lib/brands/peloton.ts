@@ -31,5 +31,13 @@ export const PELOTON = {
   ],
   // Communities about the brand: every post there is on-topic, even without the word.
   brandSubreddits: ["pelotoncycle", "onepelotonrealsub"],
+  // Provisional, pending client approval.
+  neverDo: [
+    "comments on, defends or criticizes named instructors or staff",
+    "gives medical, injury, weight-loss or body-image advice",
+    "announces prices, discounts or Black Friday deals that aren't public",
+    "argues with users or calls anyone wrong",
+    "posts in competitor, racing or unrelated communities",
+  ],
   supportUrl: "https://support.onepeloton.com",
 };

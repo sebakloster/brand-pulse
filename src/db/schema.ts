@@ -89,6 +89,9 @@ export const mentions = pgTable("mentions", {
   followed: boolean("followed").notNull().default(false),
   isDeleted: boolean("is_deleted").notNull().default(false),
   isBotLike: boolean("is_bot_like").notNull().default(false),
+  aiAttempts: integer("ai_attempts").notNull().default(0), // failed AI calls; stops endless retries
+  triageError: text("triage_error"),
+  relevanceReason: text("relevance_reason"), // why the model judged it off-brand
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
