@@ -1,0 +1,63 @@
+{
+ "at": "2026-11-16T19:38:52.776Z",
+ "relevanceVersion": "relevance-v2",
+ "triageVersion": "triage-v3",
+ "all": {
+  "n": 51,
+  "relevance": 50,
+  "triaged": 41,
+  "importance": 41,
+  "action": 40,
+  "neverReply": 30,
+  "neverReplyViolations": 0,
+  "expectReply": 2,
+  "replyFound": 1,
+  "missing": 0
+ },
+ "random": {
+  "n": 37,
+  "relevance": 36,
+  "triaged": 27,
+  "importance": 27,
+  "action": 26,
+  "neverReply": 23,
+  "neverReplyViolations": 0,
+  "expectReply": 0,
+  "replyFound": 0,
+  "missing": 0
+ },
+ "curated": {
+  "n": 14,
+  "relevance": 14,
+  "triaged": 14,
+  "importance": 14,
+  "action": 14,
+  "neverReply": 7,
+  "neverReplyViolations": 0,
+  "expectReply": 2,
+  "replyFound": 1,
+  "missing": 0
+ },
+ "costUsd": 0.1445644348859787,
+ "seconds": 28,
+ "misses": [
+  {
+   "id": "t1_19smthw6zd2at",
+   "set": "random",
+   "field": "action",
+   "expected": "ignore/monitor",
+   "got": "route→marketing",
+   "note": "Considering Tread Vision in r/treadmills. Purchase intent in a non-brand community.",
+   "why": "Existing Peloton member weighing a Tread purchase in a third-party treadmill community; brand reply unwelcome there, but marketing should note positive Tread+ sentiment."
+  },
+  {
+   "id": "t1_19slbyyxtcusk",
+   "set": "random",
+   "field": "relevance",
+   "expected": "true",
+   "got": "no",
+   "note": "Joke: bear looked like it was on a Peloton.",
+   "why": "Pun on 'peloton' meaning a bear's cycling-style mount, not the brand."
+  }
+ ]
+}

@@ -21,6 +21,30 @@ const Output = z.object({
   })),
 });
 
+export type RelevanceVerdict = z.infer<typeof Output>["items"][number];
+
+/** One relevance call for a batch (production and evals use the same prompt and code). */
+export async function checkRelevance(
+  brand: typeof brands.$inferSelect,
+  batch: (typeof mentions.$inferSelect)[],
+  { purpose = "relevance", logBrandId = brand.id as string | null }: { purpose?: "relevance" | "eval"; logBrandId?: string | null } = {},
+) {
+  const brandRe = compileRules(brand).brand;
+  const user = batch.map((m) => [
+    `<item id="${m.id}" kind="${m.kind}" subreddit="r/${m.subreddit}">`,
+    m.kind === "comment" && m.title ? `Post title: ${truncate(m.title, 200)}` : null,
+    m.kind === "post" ? `Title: ${truncate(m.title, 300)}` : null,
+    `Text: ${excerpt(m.body, 1200, brandRe)}`,
+    `</item>`,
+  ].filter(Boolean).join("\n")).join("\n\n");
+  const out = await structuredCall({
+    purpose, brandId: logBrandId, model: MODELS.relevance,
+    system: relevanceSystem(brand), user: `Check these ${batch.length} items:\n\n${user}`,
+    schema: Output, maxTokens: 4000, effort: "low", thinkingOff: true,
+  });
+  return new Map(out.items.map((i) => [i.id, i]));
+}
+
 export async function runRelevance(brandId: string, deadline: Deadline, { limit = 300, concurrency = 4 } = {}) {
   const [brand] = await db.select().from(brands).where(eq(brands.id, brandId));
   const pending = await db.select().from(mentions)
@@ -29,28 +53,12 @@ export async function runRelevance(brandId: string, deadline: Deadline, { limit 
     .limit(limit);
   if (pending.length === 0) return { checked: 0, relevant: 0, irrelevant: 0, nonEnglish: 0, failed: 0 };
 
-  const system = relevanceSystem(brand);
-  const brandRe = compileRules(brand).brand;
   const stats = { checked: 0, relevant: 0, irrelevant: 0, nonEnglish: 0, failed: 0 };
 
   const batches = chunks(pending, BATCH);
   const results = await pMap(batches, concurrency, async (batch) => {
     if (deadline.passed) return; // leave for the next tick
-    const user = batch.map((m) => [
-      `<item id="${m.id}" kind="${m.kind}" subreddit="r/${m.subreddit}">`,
-      m.kind === "comment" && m.title ? `Post title: ${truncate(m.title, 200)}` : null,
-      m.kind === "post" ? `Title: ${truncate(m.title, 300)}` : null,
-      `Text: ${excerpt(m.body, 1200, brandRe)}`,
-      `</item>`,
-    ].filter(Boolean).join("\n")).join("\n\n");
-
-    const out = await structuredCall({
-      purpose: "relevance", brandId, model: MODELS.relevance,
-      system, user: `Check these ${batch.length} items:\n\n${user}`,
-      schema: Output, maxTokens: 4000, effort: "low", thinkingOff: true,
-    });
-
-    const byId = new Map(out.items.map((i) => [i.id, i]));
+    const byId = await checkRelevance(brand, batch);
     const yes: string[] = [], no: string[] = [], foreign: { id: string; lang: string }[] = [];
     const reasons = new Map<string, string>();
     for (const m of batch) {

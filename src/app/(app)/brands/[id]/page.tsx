@@ -31,7 +31,10 @@ export default async function BrandPage({ params }: { params: Promise<{ id: stri
       <Link href="/brands" className="text-sm text-muted hover:text-foreground">← Brands</Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{brand.name}</h1>
-        <RunNowButton brandId={id} source={source} />
+        <div className="flex flex-wrap items-start gap-3">
+          <Link href={`/brands/${id}/overview`} className="rounded-full bg-surface-2 px-5 py-2 text-sm hover:bg-border">Overview & stats</Link>
+          <RunNowButton brandId={id} source={source} />
+        </div>
       </div>
 
       <section className="space-y-3 rounded-3xl border border-border bg-surface p-4 sm:p-6">

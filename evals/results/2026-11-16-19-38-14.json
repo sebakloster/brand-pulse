@@ -1,0 +1,72 @@
+{
+ "at": "2026-11-16T19:38:14.721Z",
+ "relevanceVersion": "relevance-v2",
+ "triageVersion": "triage-v3",
+ "all": {
+  "n": 51,
+  "relevance": 49,
+  "triaged": 41,
+  "importance": 41,
+  "action": 40,
+  "neverReply": 30,
+  "neverReplyViolations": 0,
+  "expectReply": 2,
+  "replyFound": 1,
+  "missing": 0
+ },
+ "random": {
+  "n": 37,
+  "relevance": 35,
+  "triaged": 27,
+  "importance": 27,
+  "action": 26,
+  "neverReply": 23,
+  "neverReplyViolations": 0,
+  "expectReply": 0,
+  "replyFound": 0,
+  "missing": 0
+ },
+ "curated": {
+  "n": 14,
+  "relevance": 14,
+  "triaged": 14,
+  "importance": 14,
+  "action": 14,
+  "neverReply": 7,
+  "neverReplyViolations": 0,
+  "expectReply": 2,
+  "replyFound": 1,
+  "missing": 0
+ },
+ "costUsd": 0.16594837605953217,
+ "seconds": 29,
+ "misses": [
+  {
+   "id": "t1_19smthw6zd2at",
+   "set": "random",
+   "field": "action",
+   "expected": "ignore/monitor",
+   "got": "route→marketing",
+   "note": "Considering Tread Vision in r/treadmills. Purchase intent in a non-brand community.",
+   "why": "Existing Peloton member weighing a Tread purchase in a non-brand treadmill subreddit; brand reply unwelcome there, but marketing should note positive sentiment shift."
+  },
+  {
+   "id": "t1_19slbyyxtcusk",
+   "set": "random",
+   "field": "relevance",
+   "expected": "true",
+   "got": "no",
+   "note": "Joke: bear looked like it was on a Peloton.",
+   "why": "'Peloton' is a pun on a bear, not the brand."
+  },
+  {
+   "id": "t1_19sq3yrt92aki",
+   "set": "random",
+   "field": "relevance",
+   "expected": "false",
+   "got": "unsure",
+   "note": "'They have a peloton mode' (group-ride mode of a trainer app).",
+   "why": "'Peloton mode' could refer to the product feature or the cycling pack."
+  }
+ ]
+}

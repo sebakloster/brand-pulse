@@ -47,7 +47,10 @@ export default async function BrandsPage() {
                   {b.domain} · last run {s?.last_run ? timeAgo(s.last_run) : "never"} · polls every {b.pollEveryHours}h when live
                 </p>
               </div>
-              <Link href={`/brands/${b.id}`} className="rounded-full bg-surface-2 px-4 py-1.5 text-sm hover:bg-border">Settings & runs</Link>
+              <div className="flex gap-2">
+                <Link href={`/brands/${b.id}/overview`} className="rounded-full bg-surface-2 px-4 py-1.5 text-sm hover:bg-border">Overview</Link>
+                <Link href={`/brands/${b.id}`} className="rounded-full bg-surface-2 px-4 py-1.5 text-sm hover:bg-border">Settings & runs</Link>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat label="Needs attention" value={String(s?.attention ?? 0)} href="/queue" />

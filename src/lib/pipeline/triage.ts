@@ -86,6 +86,21 @@ export async function buildThreadPrompt(brandId: string, postId: string, items: 
   return `${threadHeader}\n\nTriage these ${items.length} item(s):\n\n${itemText}`;
 }
 
+/** One triage call for items of one thread (production and evals use the same prompt and code). */
+export async function triageThread(
+  brand: typeof brands.$inferSelect,
+  postId: string,
+  items: Mention[],
+  { purpose = "triage", logBrandId = brand.id as string | null }: { purpose?: "triage" | "eval"; logBrandId?: string | null } = {},
+) {
+  const out = await structuredCall({
+    purpose, brandId: logBrandId, model: MODELS.triage, system: triageSystem(brand),
+    user: await buildThreadPrompt(brand.id, postId, items, compileRules(brand).brand),
+    schema: Output, maxTokens: 8000, effort: "medium",
+  });
+  return new Map(out.items.map((i) => [i.id, i]));
+}
+
 export async function runTriage(brandId: string, deadline: Deadline, { limit = 200, concurrency = 4 } = {}) {
   const [brand] = await db.select().from(brands).where(eq(brands.id, brandId));
   const pending = await db.select().from(mentions)
@@ -98,17 +113,10 @@ export async function runTriage(brandId: string, deadline: Deadline, { limit = 2
   for (const m of pending) byThread.set(m.postId, [...(byThread.get(m.postId) ?? []), m]);
   const jobs = [...byThread.entries()].flatMap(([postId, ms]) => chunks(ms, MAX_ITEMS_PER_CALL).map((items) => ({ postId, items })));
 
-  const system = triageSystem(brand);
-  const brandRe = compileRules(brand).brand;
   const results = await pMap(jobs, concurrency, async ({ postId, items }) => {
     if (deadline.passed) return;
     stats.calls++;
-    const out = await structuredCall({
-      purpose: "triage", brandId, model: MODELS.triage, system,
-      user: await buildThreadPrompt(brandId, postId, items, brandRe),
-      schema: Output, maxTokens: 8000, effort: "medium",
-    });
-    const byId = new Map(out.items.map((i) => [i.id, i]));
+    const byId = await triageThread(brand, postId, items);
     const done: string[] = [];
     const rows = items.flatMap((m) => {
       const t = byId.get(m.id);

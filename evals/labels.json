@@ -1,0 +1,693 @@
+{
+ "description": "Hand labels for the Peloton fixture, written from the item text only, before looking at model output. 'random' = stratified random sample; 'curated' = demo threads seen while tuning prompts (scored separately).",
+ "rules": {
+  "about_brand": "true if the item refers to Peloton the company, its products, app, staff or members (passing mentions count). False for the cycling term or other languages.",
+  "importance": "Acceptable levels. P0 safety/legal/security; P1 resolvable complaint/question; P2 feedback, reputation, minor questions; P3 passing mention, praise, chatter.",
+  "action": "Acceptable actions (the model must pick one of them).",
+  "never_reply": "A brand reply would be wrong: health/body stories, named staff, pricing, unrelated/competitor/racing communities, security issues handled privately.",
+  "expect_reply": "A clear reply candidate (used for reply recall)."
+ },
+ "items": [
+  {
+   "id": "t1_19smivdu8lvur",
+   "set": "random",
+   "about_brand": true,
+   "note": "Calorie-deficit diet thread; Peloton HIIT in passing. Body/diet topic.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sopi2nhqtmp",
+   "set": "random",
+   "about_brand": false,
+   "note": "FFXIV game: 'peloton-like speed buff' = cycling term."
+  },
+  {
+   "id": "t1_19slf5vmetpls",
+   "set": "random",
+   "about_brand": false,
+   "note": "Riding 'in the middle of the peloton' = cycling term."
+  },
+  {
+   "id": "t1_19snytj9m8r37",
+   "set": "random",
+   "about_brand": true,
+   "note": "Crosstraining Bike+ upgrade: wobbly, screws loosen. Product-quality complaint in brand sub.",
+   "importance": [
+    "P1",
+    "P2"
+   ],
+   "action": [
+    "route",
+    "reply"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sqaxyljsfs5",
+   "set": "random",
+   "about_brand": true,
+   "note": "Chatted with instructor Denis about Artist Series. Named staff, neutral.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19snha3uy5uf4",
+   "set": "random",
+   "about_brand": true,
+   "note": "'Peloton app' recommended in r/zepbound (weight-loss medication).",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sq7y1vc4wx1",
+   "set": "random",
+   "about_brand": true,
+   "note": "Plantar fasciitis recovery, rides Peloton more. Health story.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19slt5py5byf5",
+   "set": "random",
+   "about_brand": true,
+   "note": "Peer asks 'bike/tread or app?' in an Apple Watch thread. Nothing for the brand.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sp43zli6810",
+   "set": "random",
+   "about_brand": true,
+   "note": "'Never used a Peloton, they're heavy' in a local news sub.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sohgjpnyttt",
+   "set": "random",
+   "about_brand": true,
+   "note": "600th class with an instructor, got a shout-out. Praise + named staff.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19smm2updj4is",
+   "set": "random",
+   "about_brand": true,
+   "note": "Home gym list includes a Peloton bike. Passing.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sork6hlops3",
+   "set": "random",
+   "about_brand": true,
+   "note": "Studio class full of corporate guests, 'vibe awful', names an instructor. Mild feedback + named staff.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19smthw6zd2at",
+   "set": "random",
+   "about_brand": true,
+   "note": "Considering Tread Vision in r/treadmills. Purchase intent in a non-brand community.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sl3sxy6yi76",
+   "set": "random",
+   "about_brand": false,
+   "note": "Road cycling etiquette: 'the peloton eases up'."
+  },
+  {
+   "id": "t1_19soj9r90d7j9",
+   "set": "random",
+   "about_brand": true,
+   "note": "Long list of subscriptions incl. 'Peloton App+'. Passing.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sotrpo80lz8",
+   "set": "random",
+   "about_brand": true,
+   "note": "Favorite instructor since joining 6 years ago. Praise + named staff.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sowj2uligp0",
+   "set": "random",
+   "about_brand": true,
+   "note": "r/cycling: 'time to get off Peloton if you want to progress'. Racing community.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19soespn27y76",
+   "set": "random",
+   "about_brand": true,
+   "note": "Weight/ED experience; partner loves Peloton. Health topic.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sohegep5sf6",
+   "set": "random",
+   "about_brand": true,
+   "note": "Dad does cardio on the Peloton at 7pm. Passing.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19so2wu1orsaq",
+   "set": "random",
+   "about_brand": true,
+   "note": "Lawsuit: data could come from apps like Peloton/Strava. Passing.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sowafnintab",
+   "set": "random",
+   "about_brand": true,
+   "note": "r/cycling: 'a Peloton bike is a random number generator'. Reputation, racing community.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sn99li1c0io",
+   "set": "random",
+   "about_brand": false,
+   "note": "Circlejerk: 'finest kickstand of the entire peloton' = cycling term."
+  },
+  {
+   "id": "t1_19sovwq0zrtoi",
+   "set": "random",
+   "about_brand": true,
+   "note": "r/cycling: nobody takes a Peloton FTP seriously. Reputation, racing community.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19slgve6bc9ep",
+   "set": "random",
+   "about_brand": true,
+   "note": "Ex-friend unfriends/refriends in apps 'LinkedIn, peloton'. Passing.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sn26p6wr48x",
+   "set": "random",
+   "about_brand": true,
+   "note": "Switched from Peloton/Apple Fitness to Ladder. Competitor community, churn signal.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19slef4fn3blt",
+   "set": "random",
+   "about_brand": true,
+   "note": "No non-Peloton treadmill does auto incline natively. Factual peer chat.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19slbyyxtcusk",
+   "set": "random",
+   "about_brand": true,
+   "note": "Joke: bear looked like it was on a Peloton.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19slzcjii8qwx",
+   "set": "random",
+   "about_brand": true,
+   "note": "Teacher recommends getting a Peloton. Praise in an unrelated community.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xw78be",
+   "set": "random",
+   "about_brand": true,
+   "note": "Tread Flex delivered, 'in love', delivery crew nice. Praise in brand sub.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "reply"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19spu7xxrdczl",
+   "set": "random",
+   "about_brand": true,
+   "note": "r/cycling: defends the OP against hate. Chatter.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sofpss84tz5",
+   "set": "random",
+   "about_brand": true,
+   "note": "Influencer who used to work at Peloton. Former staff, gossip.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sq3yrt92aki",
+   "set": "random",
+   "about_brand": false,
+   "note": "'They have a peloton mode' (group-ride mode of a trainer app)."
+  },
+  {
+   "id": "t1_19sp14gmruzt0",
+   "set": "random",
+   "about_brand": false,
+   "note": "'riders in the pro peloton' = cycling term."
+  },
+  {
+   "id": "t1_19sl1rpqq820y",
+   "set": "random",
+   "about_brand": false,
+   "note": "Bike commuting: 'your peloton rules' = cycling term."
+  },
+  {
+   "id": "t1_19spyg0fe3p37",
+   "set": "random",
+   "about_brand": false,
+   "note": "'r/peloton is leaking' = pro cycling subreddit."
+  },
+  {
+   "id": "t1_19sl5upr6iidc",
+   "set": "random",
+   "about_brand": false,
+   "note": "Formula E 'peloton racing' = racing term."
+  },
+  {
+   "id": "t1_19sl6ckg90142",
+   "set": "random",
+   "about_brand": false,
+   "note": "Tour de France: 'the peloton will enforce it'."
+  },
+  {
+   "id": "t3_1xwce8t",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Instructor class criticized harshly, 83 comments. Named staff: never reply; route to content/talent.",
+   "importance": [
+    "P1",
+    "P2"
+   ],
+   "action": [
+    "route",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xvl1ty",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Screen failing since September, support stalling replacement. The best reply candidate.",
+   "importance": [
+    "P1"
+   ],
+   "action": [
+    "reply",
+    "route"
+   ],
+   "never_reply": false,
+   "expect_reply": true
+  },
+  {
+   "id": "t3_1xw44xq",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Loose skin after weight loss, mentions peloton jogging. Body topic.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xwua7p",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Knee surgery rehab on a Peloton. Health story.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xw4l71",
+   "set": "curated",
+   "about_brand": true,
+   "note": "New 'share to Instagram' is worse. Product feedback.",
+   "importance": [
+    "P2"
+   ],
+   "action": [
+    "route",
+    "monitor",
+    "reply"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xv9mqx",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Rakuten cashback guesses for Black Friday. Pricing: never comment.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor",
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19smfge70fn7p",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Resale contact was a phishing attempt; Peloton emailed about it. Security.",
+   "importance": [
+    "P0",
+    "P1"
+   ],
+   "action": [
+    "route",
+    "reply"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19smzlff5fsh1",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Fitbit Charge 6 won't connect; latest bike software from August.",
+   "importance": [
+    "P1",
+    "P2"
+   ],
+   "action": [
+    "reply",
+    "route"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sn33yuj4j6r",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Bought Black Friday bundle; delivery link says no dates available. Resolvable.",
+   "importance": [
+    "P1"
+   ],
+   "action": [
+    "reply",
+    "route"
+   ],
+   "never_reply": false,
+   "expect_reply": true
+  },
+  {
+   "id": "t1_19sp01hyo02zl",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Challenge ride didn't count; 'challenges always a mess'. Resolvable question/complaint.",
+   "importance": [
+    "P1",
+    "P2"
+   ],
+   "action": [
+    "reply",
+    "route"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t1_19sp1nasxxoe8",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Apple Health gets partial heart-rate data; a workout missing. Bug report.",
+   "importance": [
+    "P1",
+    "P2"
+   ],
+   "action": [
+    "reply",
+    "route"
+   ],
+   "never_reply": false,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xx7pgl",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Third-party app asks for Peloton passwords. Security; no public reply.",
+   "importance": [
+    "P0"
+   ],
+   "action": [
+    "route"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xvf2ic",
+   "set": "curated",
+   "about_brand": true,
+   "note": "57F weight-loss + Bike+ purchase doubts. Body topic: never reply.",
+   "importance": [
+    "P2",
+    "P3"
+   ],
+   "action": [
+    "ignore",
+    "monitor"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  },
+  {
+   "id": "t3_1xwcxsw",
+   "set": "curated",
+   "about_brand": true,
+   "note": "Job ad: Group PM at Peloton. Noise.",
+   "importance": [
+    "P3"
+   ],
+   "action": [
+    "ignore"
+   ],
+   "never_reply": true,
+   "expect_reply": false
+  }
+ ]
+}
