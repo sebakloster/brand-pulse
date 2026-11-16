@@ -2,7 +2,7 @@
 // inside a request; each tick checks the ones in progress and ingests finished ones.
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { getRedditSource, type RedditSource } from "@/lib/reddit/source";
+import { ApifySource, FixtureSource, getRedditSource, type RedditSource } from "@/lib/reddit/source";
 import { applyRulesForBrand, ingestRun } from "./ingest";
 
 const { brands, mentions, runs, settings } = schema;
@@ -37,10 +37,13 @@ async function budget() {
 
 export class RunRefused extends Error {}
 
-/** Last successful search run's start time: the next run fetches from there (minus an overlap). */
-async function cursor(brandId: string) {
+/**
+ * Last successful search run's start time, for the same kind of source: the next run fetches
+ * from there (minus an overlap). Replays of the saved dataset never move a live cursor.
+ */
+async function cursor(brandId: string, kind: RedditSource["kind"]) {
   const [last] = await db.select().from(runs)
-    .where(and(eq(runs.brandId, brandId), eq(runs.purpose, "search"), eq(runs.status, "succeeded")))
+    .where(and(eq(runs.brandId, brandId), eq(runs.purpose, "search"), eq(runs.status, "succeeded"), eq(runs.source, kind)))
     .orderBy(desc(runs.startedAt)).limit(1);
   return last?.startedAt ?? null;
 }
@@ -59,7 +62,7 @@ export async function startSearchRun(brand: Brand, { manual = false, source = ge
       throw new RunRefused(`Monthly scraper budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Raise it in Settings.`);
     }
   }
-  const last = await cursor(brand.id);
+  const last = await cursor(brand.id, source.kind);
   const since = last
     ? new Date(last.getTime() - RUN_LIMITS.overlapMinutes * 60_000)
     : new Date(Date.now() - brand.backfillDays * 86_400_000);
@@ -114,12 +117,25 @@ export async function dueBrands() {
   return due;
 }
 
-/** Checks runs in progress; ingests the finished ones. Safe to call repeatedly. */
-export async function collectRuns(source = getRedditSource()) {
+/** A live scrape: manual checks always use this, whatever the default source is. */
+export function liveSource() {
+  return new ApifySource(); // throws a clear error when APIFY_TOKEN is missing
+}
+
+/** Checks runs in progress (each with the source that started it); ingests the finished ones. */
+export async function collectRuns() {
   const open = await db.select().from(runs).where(inArray(runs.status, ["starting", "running"]));
   const report: Record<string, string> = {};
+  const sources: Partial<Record<RedditSource["kind"], RedditSource | null>> = {};
+  const sourceFor = (kind: RedditSource["kind"]) => {
+    if (!(kind in sources)) {
+      try { sources[kind] = kind === "apify" ? new ApifySource() : new FixtureSource(); } catch { sources[kind] = null; }
+    }
+    return sources[kind];
+  };
   for (const run of open) {
-    if (!run.apifyRunId || run.source !== source.kind) continue;
+    const source = sourceFor(run.source);
+    if (!run.apifyRunId || !source) continue;
     const ageMin = (Date.now() - run.startedAt.getTime()) / 60_000;
     try {
       const state = await source.getRun(run.apifyRunId);

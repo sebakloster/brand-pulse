@@ -13,10 +13,10 @@ import { runSpikes } from "./spike-step";
 import { sendPendingAlerts } from "@/lib/email/digest";
 
 export const TICK_BUDGET_MS = 240_000; // stays under Vercel's 300s function limit
-const LEASE_MS = 300_000;
 
 export async function runTick({ budgetMs = TICK_BUDGET_MS } = {}) {
-  const holder = await acquireLease("tick", LEASE_MS);
+  // The lease outlives the budget only slightly, so a crashed tick can't block the next one for long.
+  const holder = await acquireLease("tick", budgetMs + 30_000);
   if (!holder) return { skipped: "another tick is running" };
   const deadline = Deadline.in(budgetMs);
   const report: Record<string, unknown> = {};

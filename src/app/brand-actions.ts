@@ -8,7 +8,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
-import { RunRefused, collectRuns, startSearchRun } from "@/lib/pipeline/runs";
+import { RunRefused, collectRuns, liveSource, startSearchRun } from "@/lib/pipeline/runs";
 import { runTick } from "@/lib/pipeline/tick";
 
 const { brands, runs } = schema;
@@ -106,27 +106,35 @@ export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEna
   revalidatePath("/", "layout");
 }
 
-/** "Run now": starts a search run, then keeps working after the response (up to ~4 min) to collect and process it. */
+/**
+ * "Check Reddit now": always a live scrape. Starts the run and returns right away; the
+ * app's activity tracker shows progress, and keeps the pipeline moving while it polls.
+ */
 export async function runNow(id: string): Promise<{ ok: boolean; message: string }> {
   await requireSession();
   const [brand] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
   if (!brand) return { ok: false, message: "Brand not found." };
+  let source;
+  try { source = liveSource(); } catch {
+    return { ok: false, message: "Live Reddit checks aren't set up on this deployment (missing APIFY_TOKEN)." };
+  }
   let runId: string;
   try {
-    runId = await startSearchRun(brand, { manual: true });
+    runId = await startSearchRun(brand, { manual: true, source });
   } catch (e) {
-    return { ok: false, message: e instanceof RunRefused ? e.message : `Couldn't start the run: ${e instanceof Error ? e.message : e}` };
+    return { ok: false, message: e instanceof RunRefused ? e.message : `Couldn't start the check: ${e instanceof Error ? e.message : e}` };
   }
   after(async () => {
+    // Collect as soon as the scrape finishes (the tracker's polling also nudges this along).
     const until = Date.now() + 240_000;
     while (Date.now() < until) {
       await collectRuns();
       const [r] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
       if (r.status !== "running" && r.status !== "starting") break;
-      await new Promise((res) => setTimeout(res, 15_000));
+      await new Promise((res) => setTimeout(res, 10_000));
     }
     await runTick({ budgetMs: Math.max(30_000, until - Date.now()) });
   });
   revalidatePath("/", "layout");
-  return { ok: true, message: "Run started. Results appear here as it finishes (usually a few minutes)." };
+  return { ok: true, message: `Checking Reddit for ${brand.name}…` };
 }

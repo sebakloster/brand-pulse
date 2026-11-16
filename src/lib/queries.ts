@@ -115,3 +115,12 @@ export async function getThread(mentionId: string) {
   const comments = rows.filter((r) => r.kind === "comment");
   return { item, post, comments, brandId: focus.brand_id };
 }
+
+/** When the brand was last checked on Reddit (live scrapes only), and whether a check is running. */
+export async function getLastCheck(brandId: string) {
+  const [r] = (await db.execute(sql`
+    select started_at as at, status in ('starting', 'running') as running from runs
+    where brand_id = ${brandId} and purpose = 'search' and source = 'apify'
+    order by started_at desc limit 1`)).rows as { at: string; running: boolean }[];
+  return r ?? null;
+}

@@ -22,7 +22,7 @@ console.log("Started Apify run", started.externalId, "input:", JSON.stringify(st
 const t0 = Date.now();
 for (;;) {
   await new Promise((r) => setTimeout(r, 15_000));
-  const report = await collectRuns(source);
+  const report = await collectRuns();
   const [r] = await db.select().from(schema.runs).where(eq(schema.runs.id, run.id));
   console.log(`${Math.round((Date.now() - t0) / 1000)}s: ${r.status}`, JSON.stringify(report));
   if (r.status !== "running") {

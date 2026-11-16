@@ -6,7 +6,6 @@ import { brandCosts, liveEstimate } from "@/lib/costs";
 import { timeAgo } from "@/lib/labels";
 import { recentRuns } from "@/lib/pipeline/runs";
 import { getBrand } from "@/lib/queries";
-import { getRedditSource } from "@/lib/reddit/source";
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 const STATUS: Record<string, string> = { succeeded: "Done", failed: "Failed", timed_out: "Timed out", running: "Running", starting: "Starting" };
@@ -17,7 +16,6 @@ export default async function BrandSettings({ params }: { params: Promise<{ bran
   if (!brand) notFound();
   const [costs, estimate, runs] = await Promise.all([brandCosts(), liveEstimate(brandId, brand.pollEveryHours), recentRuns(brandId, 6)]);
   const c = costs.get(brandId);
-  const demo = getRedditSource().kind === "fixture";
 
   return (
     <div className="space-y-6">
@@ -26,11 +24,10 @@ export default async function BrandSettings({ params }: { params: Promise<{ bran
           <Card.Title>Tracking</Card.Title>
           <Card.Description>
             Spent this month: {usd(c?.totalUsd ?? 0)} · about {usd(estimate.perMonth)}/month with automatic checks
-            {demo && " · this deployment uses a saved dataset"}
           </Card.Description>
         </Card.Header>
         <Card.Content>
-          <TrackingPanel brandId={brandId} enabled={brand.enabled} live={brand.livePollingEnabled} pollEveryHours={brand.pollEveryHours} demo={demo} />
+          <TrackingPanel brandId={brandId} enabled={brand.enabled} live={brand.livePollingEnabled} pollEveryHours={brand.pollEveryHours} />
         </Card.Content>
       </Card>
 
