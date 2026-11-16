@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // The demo dataset is read at runtime, so it must ship with
+  // every server route that can run the pipeline (tick, Run now, pages' actions).
+  outputFileTracingIncludes: {
+    "/**": ["./fixture/*.json"],
+  },
   turbopack: {
     rules: {
       "*.css": {
