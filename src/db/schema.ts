@@ -156,7 +156,9 @@ export const alerts = pgTable("alerts", {
   brandId: uuid("brand_id").notNull().references(() => brands.id),
   postId: text("post_id").notNull(),
   kind: text("kind").notNull().default("spike"),
-  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(), // when the alert was raised
+  emailedAt: timestamp("emailed_at", { withTimezone: true }),
+  emailError: text("email_error"),
 });
 
 export const llmCalls = pgTable("llm_calls", {
@@ -180,6 +182,10 @@ export const settings = pgTable("settings", {
   timezone: text("timezone").notNull().default("America/New_York"),
   digestHour: integer("digest_hour").notNull().default(8),
   monthlyApifyBudgetUsd: real("monthly_apify_budget_usd").notNull().default(5),
+  lastDigestDate: text("last_digest_date"), // YYYY-MM-DD in `timezone`: one digest per day
+  lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
+  lastDigestError: text("last_digest_error"),
+  spikeEmails: boolean("spike_emails").notNull().default(true),
 });
 
 // Lease lock for /api/tick. The Neon HTTP driver has no sessions, so

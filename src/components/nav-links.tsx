@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/queue", label: "Queue", match: (p: string, tab: string | null) => p.startsWith("/queue") && tab !== "followed" },
   { href: "/queue?tab=followed", label: "Followed", match: (p: string, tab: string | null) => p.startsWith("/queue") && tab === "followed" },
   { href: "/brands", label: "Brands", match: (p: string) => p.startsWith("/brands") },
+  { href: "/settings", label: "Settings", match: (p: string) => p.startsWith("/settings") },
 ];
 
 export function NavLinks({ variant }: { variant: "top" | "bottom" }) {

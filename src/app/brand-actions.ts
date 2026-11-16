@@ -36,7 +36,7 @@ const BrandForm = z.object({
   backfillDays: z.coerce.number().int().min(1).max(7),
 });
 
-export type BrandFormState = { error?: string; saved?: boolean };
+export type BrandFormState = { error?: string; saved?: boolean; values?: Record<string, string> };
 
 export async function saveBrand(_prev: BrandFormState | undefined, form: FormData): Promise<BrandFormState> {
   await requireSession();
@@ -49,7 +49,11 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     voiceGuide: form.get("voiceGuide") ?? "", supportUrl: form.get("supportUrl") || undefined,
     pollEveryHours: form.get("pollEveryHours"), backfillDays: form.get("backfillDays"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid form" };
+  if (!parsed.success) {
+    // Echo the input back: React 19 resets the form after an action.
+    const values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+    return { error: parsed.error.issues[0]?.message ?? "Invalid form", values };
+  }
   const id = String(form.get("id") ?? "");
   try {
     if (id) {
@@ -65,7 +69,9 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     revalidatePath("/brands");
     redirect(`/brands/${created.id}`);
   } catch (e) {
-    if (e instanceof Error && /brands_name_unique|duplicate key/.test(e.message)) return { error: "A brand with this name already exists." };
+    if (e instanceof Error && /brands_name_unique|duplicate key/.test(e.message)) {
+      return { error: "A brand with this name already exists.", values: Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)])) };
+    }
     throw e;
   }
 }

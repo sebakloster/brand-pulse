@@ -57,6 +57,13 @@
       "when": 1794845232553,
       "tag": "0007_snapshot_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794857436529,
+      "tag": "0008_email",
+      "breakpoints": true
     }
   ]
 }

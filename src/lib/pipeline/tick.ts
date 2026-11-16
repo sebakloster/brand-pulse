@@ -10,6 +10,7 @@ import { runTriage } from "./triage";
 import { runDrafts } from "@/lib/drafts/generate";
 import { collectRuns, dueBrands, startSearchRun } from "./runs";
 import { runSpikes } from "./spike-step";
+import { sendPendingAlerts } from "@/lib/email/digest";
 
 export const TICK_BUDGET_MS = 240_000; // stays under Vercel's 300s function limit
 const LEASE_MS = 300_000;
@@ -39,6 +40,8 @@ export async function runTick({ budgetMs = TICK_BUDGET_MS } = {}) {
       const drafts = deadline.passed ? null : await runDrafts(brand.id, deadline);
       report[brand.name] = { rules, relevance, triage, spikes, drafts };
     }
+    // 3. Instant spike emails.
+    report.alerts = await sendPendingAlerts();
     return report;
   } finally {
     await releaseLease("tick", holder);
