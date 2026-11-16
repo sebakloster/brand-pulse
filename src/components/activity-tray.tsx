@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Spinner } from "@heroui/react";
 import { CircleCheckFill, CircleXmarkFill, Xmark } from "@gravity-ui/icons";
 import type { Activity } from "@/lib/activity";
@@ -19,6 +19,7 @@ function loadDismissed(): Set<string> {
  */
 export function ActivityTray() {
   const router = useRouter();
+  const pathname = usePathname();
   const [items, setItems] = useState<Activity[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : loadDismissed()));
   const prevPhase = useRef<Map<string, Activity["phase"]>>(new Map());
@@ -50,11 +51,24 @@ export function ActivityTray() {
     return () => { clearTimeout(first); clearInterval(timer); window.removeEventListener(ACTIVITY_EVENT, onEvent); };
   }, [poll, active]);
 
-  function dismiss(runId: string) {
-    const next = new Set(dismissed).add(runId);
-    setDismissed(next);
-    try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next].slice(-50))); } catch { /* private mode */ }
-  }
+  const dismiss = useCallback((runId: string) => {
+    setDismissed((prev) => {
+      if (prev.has(runId)) return prev;
+      const next = new Set(prev).add(runId);
+      try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next].slice(-50))); } catch { /* private mode */ }
+      return next;
+    });
+  }, []);
+
+  // Finished notices get out of the way: once you open that brand's inbox, or after ~20 s.
+  useEffect(() => {
+    const finished = items.filter((a) => (a.phase === "done" || a.phase === "failed") && !dismissed.has(a.runId));
+    const timers = finished.map((a) => {
+      if (a.phase === "done" && pathname.startsWith(`/b/${a.brandId}`)) return setTimeout(() => dismiss(a.runId), 4000);
+      return setTimeout(() => dismiss(a.runId), a.phase === "failed" ? 60000 : 20000);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [items, dismissed, pathname, dismiss]);
 
   const visible = items.filter((a) => !dismissed.has(a.runId));
   if (visible.length === 0) return null;

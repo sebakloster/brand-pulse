@@ -32,7 +32,6 @@ const BrandForm = z.object({
   neverDo: z.array(z.string().max(200)).max(30),
   voiceGuide: z.string().max(20000),
   supportUrl: z.string().trim().max(200).optional(),
-  pollEveryHours: z.coerce.number().int().min(1).max(24),
   backfillDays: z.coerce.number().int().min(1).max(7),
 });
 
@@ -47,7 +46,7 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     brandSubreddits: list(form.get("brandSubreddits")).map((s) => s.replace(/^\/?r\//i, "").toLowerCase()),
     neverDo: String(form.get("neverDo") ?? "").split("\n").map((s) => s.trim()).filter(Boolean),
     voiceGuide: form.get("voiceGuide") ?? "", supportUrl: form.get("supportUrl") || undefined,
-    pollEveryHours: form.get("pollEveryHours"), backfillDays: form.get("backfillDays"),
+    backfillDays: form.get("backfillDays"),
   });
   if (!parsed.success) {
     // Echo the input back: React 19 resets the form after an action.
@@ -99,6 +98,16 @@ function isUniqueViolation(e: unknown): boolean {
   return false;
 }
 
+/** Automatic checks: null = off, otherwise every N hours. */
+export async function setSchedule(id: string, hours: number | null) {
+  await requireSession();
+  const h = hours === null ? null : z.union([z.literal(6), z.literal(12), z.literal(24)]).parse(hours);
+  await db.update(brands)
+    .set(h === null ? { livePollingEnabled: false } : { livePollingEnabled: true, pollEveryHours: h })
+    .where(eq(brands.id, Id.parse(id)));
+  revalidatePath("/", "layout");
+}
+
 export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEnabled", value: boolean) {
   await requireSession();
   await db.update(brands).set({ [z.enum(["enabled", "livePollingEnabled"]).parse(flag)]: z.boolean().parse(value) })
@@ -114,6 +123,8 @@ export async function runNow(id: string): Promise<{ ok: boolean; message: string
   await requireSession();
   const [brand] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
   if (!brand) return { ok: false, message: "Brand not found." };
+  // A paused brand isn't analyzed, so a check would leave results stuck unprocessed.
+  if (!brand.enabled) return { ok: false, message: `${brand.name} is paused. Resume it in Settings to check Reddit.` };
   let source;
   try { source = liveSource(); } catch {
     return { ok: false, message: "Live Reddit checks aren't set up on this deployment (missing APIFY_TOKEN)." };

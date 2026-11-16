@@ -8,7 +8,7 @@ import { saveBrand, type BrandFormState } from "@/app/brand-actions";
 type Brand = {
   id?: string; name?: string; domain?: string | null; description?: string; searchTerms?: string[];
   exclusionTerms?: string[]; blockedSubreddits?: string[]; brandSubreddits?: string[]; neverDo?: string[];
-  voiceGuide?: string; supportUrl?: string | null; pollEveryHours?: number; backfillDays?: number;
+  voiceGuide?: string; supportUrl?: string | null; backfillDays?: number;
 };
 
 function Field({ name, label, hint, value, multiline, rows = 3, type = "text", placeholder }: {
@@ -64,9 +64,8 @@ export function BrandForm({ brand }: { brand?: Brand }) {
           value={v?.neverDo ?? b.neverDo?.join("\n")} multiline rows={4} />
         <Field name="voiceGuide" label="Voice guide" hint="How replies should sound. Edits create a new version."
           value={v?.voiceGuide ?? b.voiceGuide} multiline rows={8} />
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2">
           <Field name="supportUrl" label="Support link" value={v?.supportUrl ?? b.supportUrl ?? ""} />
-          <Field name="pollEveryHours" label="Check every (hours)" type="number" value={v?.pollEveryHours ?? b.pollEveryHours ?? 6} />
           <Field name="backfillDays" label="First check looks back (days)" type="number" value={v?.backfillDays ?? b.backfillDays ?? 2} />
         </div>
       </div>

@@ -49,17 +49,27 @@ export async function brandCosts(): Promise<Map<string, BrandCost>> {
   return out;
 }
 
+export type ScheduleEstimates = Record<number, { perCheck: number; perMonth: number }>;
+
 /**
- * Steady-state estimate for live polling, from the brand's real recent runs when there
- * are any, else from a default estimate (~378 rows/day at $2/1k, ~$0.5/day Claude).
+ * What automatic checks would cost for this brand. The scraping rate (cost per day of Reddit
+ * covered) is learned from the brand's own live checks: cost ÷ length of the window each one
+ * covered. Brands without live checks yet use a busy-brand default (~$0.95/day).
  */
-export async function liveEstimate(brandId: string, pollEveryHours: number) {
+export async function scheduleEstimates(brandId: string): Promise<ScheduleEstimates> {
   const [r] = (await db.execute(sql`
-    select avg(cost_usd)::float as avg_run from runs
+    select sum(cost_usd)::float as cost,
+      sum(extract(epoch from (started_at - (input->>'postedAfter')::timestamptz)) / 86400)::float as days
+    from runs
     where brand_id = ${brandId} and source = 'apify' and purpose = 'search' and status = 'succeeded'
-      and started_at >= now() - interval '30 days'`)).rows as { avg_run: number | null }[];
-  const runsPerDay = 24 / pollEveryHours;
-  const apifyPerDay = r.avg_run != null ? r.avg_run * runsPerDay : 0.95;
-  const claudePerDay = 0.5;
-  return { basis: r.avg_run != null ? "recent runs" : "default estimate", apifyPerDay, claudePerDay, perMonth: (apifyPerDay + claudePerDay) * 30 };
+      and cost_usd is not null and input ? 'postedAfter' and started_at >= now() - interval '30 days'`)).rows as
+    { cost: number | null; days: number | null }[];
+  const scrapePerDay = r.cost != null && r.days && r.days > 0.05 ? r.cost / r.days : 0.95;
+  const aiPerDay = Math.min(0.5, scrapePerDay * 0.6); // analysis cost grows with volume
+  const out: ScheduleEstimates = {};
+  for (const h of [6, 12, 24]) {
+    const perCheck = 0.02 + scrapePerDay * ((h + 1) / 24); // each check re-reads a 1-hour overlap
+    out[h] = { perCheck, perMonth: perCheck * (24 / h) * 30 + aiPerDay * 30 };
+  }
+  return out;
 }

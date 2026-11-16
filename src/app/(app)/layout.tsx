@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-8">{children}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-48 pt-8">{children}</main>
       <ActivityTray />
     </div>
   );

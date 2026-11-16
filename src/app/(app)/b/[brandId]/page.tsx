@@ -4,15 +4,21 @@ import { CircleCheck, Magnifier } from "@gravity-ui/icons";
 import { CheckNowButton } from "@/components/check-now-button";
 import { InboxItemCard } from "@/components/inbox-item";
 import { timeAgo } from "@/lib/labels";
-import { getInbox, getLastCheck, getSpikes, type View } from "@/lib/queries";
+import { getBrand, getInbox, getLastCheck, getSpikes, type View } from "@/lib/queries";
 
 export default async function InboxPage({ params, searchParams }: {
   params: Promise<{ brandId: string }>; searchParams: Promise<{ view?: string }>;
 }) {
   const { brandId } = await params;
   const view: View = (await searchParams).view === "done" ? "done" : "todo";
-  const [{ items, counts }, spikes, last] = await Promise.all([getInbox(brandId, view), getSpikes(brandId), getLastCheck(brandId)]);
+  const [{ items, counts }, spikes, last, brand] = await Promise.all([getInbox(brandId, view), getSpikes(brandId), getLastCheck(brandId), getBrand(brandId)]);
   const neverChecked = !last && counts.todo + counts.done === 0;
+  const paused = brand ? !brand.enabled : false;
+  const check = paused ? (
+    <Link href={`/b/${brandId}/settings`} className="text-sm text-muted transition-colors hover:text-foreground">
+      Paused · resume in Settings
+    </Link>
+  ) : null;
 
   if (neverChecked) {
     return (
@@ -24,7 +30,7 @@ export default async function InboxPage({ params, searchParams }: {
             Check Reddit to find what people are saying about this brand. It takes a couple of minutes, and you can keep working meanwhile.
           </p>
         </div>
-        <CheckNowButton brandId={brandId} variant="primary" />
+        {check ?? <CheckNowButton brandId={brandId} variant="primary" />}
       </div>
     );
   }
@@ -56,9 +62,9 @@ export default async function InboxPage({ params, searchParams }: {
           </Link>
         ))}
         <span className="ml-auto hidden text-xs text-muted sm:inline">
-          {last?.running ? "Checking now…" : last ? `Last checked ${timeAgo(last.at)}` : ""}
+          {paused ? "" : last?.running ? "Checking now…" : last ? `Last checked ${timeAgo(last.at)}` : ""}
         </span>
-        <CheckNowButton brandId={brandId} busy={!!last?.running} />
+        {check ?? <CheckNowButton brandId={brandId} busy={!!last?.running} />}
       </div>
 
       {items.length === 0 ? (
