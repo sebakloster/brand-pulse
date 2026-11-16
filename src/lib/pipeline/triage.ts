@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { MODELS, structuredCall } from "@/lib/llm/client";
 import { TRIAGE_VERSION, triageSystem } from "@/lib/llm/prompts";
+import { cleanText } from "@/lib/llm/clean";
 import { chunks, excerpt, pMap, truncate, type Deadline } from "@/lib/util";
 import { compileRules } from "./rules";
 
@@ -116,13 +117,13 @@ export async function runTriage(brandId: string, deadline: Deadline, { limit = 2
       return [{
         mentionId: m.id,
         sentiment: Math.max(-2, Math.min(2, Math.round(t.sentiment))),
-        topic: t.topic.slice(0, 80),
+        topic: cleanText(t.topic, 80).text,
         intent: t.intent,
         riskFlags: t.risk_flags,
         importance: t.importance,
         action: t.action,
         routeTo: t.action === "route" || t.action === "reply" ? t.route_to : null,
-        reason: t.reason.slice(0, 300),
+        reason: cleanText(t.reason, 300).text,
         model: MODELS.triage,
         promptVersion: TRIAGE_VERSION,
       }];

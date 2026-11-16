@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { MODELS, structuredCall } from "@/lib/llm/client";
 import { relevanceSystem } from "@/lib/llm/prompts";
+import { cleanText } from "@/lib/llm/clean";
 import { chunks, excerpt, pMap, truncate, type Deadline } from "@/lib/util";
 import { compileRules } from "./rules";
 
@@ -55,7 +56,7 @@ export async function runRelevance(brandId: string, deadline: Deadline, { limit 
     for (const m of batch) {
       const v = byId.get(m.id);
       if (!v) continue; // model skipped it: stays a candidate, retried next tick
-      reasons.set(m.id, v.reason.slice(0, 200));
+      reasons.set(m.id, cleanText(v.reason, 200).text);
       const lang = v.language.toLowerCase().slice(0, 2);
       if (lang !== "en" && v.about_brand !== "no") foreign.push({ id: m.id, lang });
       else if (v.about_brand === "no") no.push(m.id);
