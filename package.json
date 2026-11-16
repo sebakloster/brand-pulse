@@ -21,7 +21,8 @@
     "show": "tsx scripts/show.mts",
     "reset:ai": "tsx scripts/reset-ai.mts",
     "recheck:irrelevant": "tsx scripts/recheck-irrelevant.mts",
-    "demo:spike": "tsx scripts/demo-spike.mts"
+    "demo:spike": "tsx scripts/demo-spike.mts",
+    "live:test": "tsx scripts/live-test.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
