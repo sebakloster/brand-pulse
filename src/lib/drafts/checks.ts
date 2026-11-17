@@ -8,8 +8,8 @@ export type CheckContext = {
   threadFlags: string[]; // triage risk flags of the item
 };
 
-const RULES: { id: string; label: string; level: "warn" | "fail"; re: RegExp; detail: string }[] = [
-  { id: "promises", label: "No promises", level: "fail",
+const RULES: { id: string; label: string; level: "warn" | "fail"; re: RegExp; detail: string; negatable?: boolean }[] = [
+  { id: "promises", label: "No promises", level: "fail", negatable: true,
     re: /\b(guarantee[ds]?|promise|will (definitely )?be fixed|refund(ed)?|credit (your|the) account|free (month|replacement|upgrade)|by (tomorrow|monday|tuesday|wednesday|thursday|friday|next week))\b/i,
     detail: "Promises an outcome we can't guarantee" },
   { id: "medical", label: "No health or body advice", level: "fail",
@@ -35,6 +35,18 @@ const RULES: { id: string; label: string; level: "warn" | "fail"; re: RegExp; de
 const URL_RE = /\bhttps?:\/\/[^\s)]+|\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(com|net|org|io|co|app)\b[^\s)]*/gi;
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
+// "I can't promise a date" or "no refund yet" is the opposite of a promise.
+const NEGATION = /\b(can't|cannot|can not|won't|couldn't|not|no|never|without)\b[^.!?]{0,20}$/i;
+
+/** First match of `re` in `text`, skipping negated ones when `negatable`. */
+function firstMatch(text: string, re: RegExp, negatable = false) {
+  for (const m of text.matchAll(new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g"))) {
+    if (negatable && NEGATION.test(text.slice(0, m.index))) continue;
+    return m[0];
+  }
+  return null;
+}
+
 export function checkDraft(text: string, ctx: CheckContext): Check[] {
   const checks: Check[] = [];
   const t = text.trim();
@@ -50,8 +62,8 @@ export function checkDraft(text: string, ctx: CheckContext): Check[] {
     : { id: "links", label: "Only official links", level: "pass" });
 
   for (const r of RULES) {
-    const m = t.match(r.re);
-    checks.push(m ? { id: r.id, label: r.label, level: r.level, detail: `${r.detail}: “${m[0]}”` } : { id: r.id, label: r.label, level: "pass" });
+    const m = firstMatch(t, r.re, r.negatable);
+    checks.push(m ? { id: r.id, label: r.label, level: r.level, detail: `${r.detail}: “${m}”` } : { id: r.id, label: r.label, level: "pass" });
   }
 
   const bangs = (t.match(/!/g) ?? []).length;

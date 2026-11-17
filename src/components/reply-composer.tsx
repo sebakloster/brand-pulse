@@ -44,7 +44,8 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
   const [, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const issues = checks.filter((c) => c.level !== "pass" && c.id !== "length");
+  // Only hard rule breaks are shown; style hints stay out of the way. (Old drafts may carry retired "ai_" checks.)
+  const issues = checks.filter((c) => c.level === "fail" && c.id !== "length" && !c.id.startsWith("ai_"));
   const writing = busy === "suggest" || busy === "own";
 
   function write(kind: "suggest" | "own") {
@@ -96,7 +97,7 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
 
   if (writing) return <Writing label={busy === "own" ? "Polishing your words…" : "Writing a reply…"} />;
 
-  if (!draft) {
+  if (!draft || !draft.finalText?.trim()) {
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted">Get a suggested reply, or say what you want in a few words and the AI will polish it.</p>
@@ -134,7 +135,7 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
       {issues.length > 0 && (
         <ul className="space-y-1 text-sm">
           {issues.map((c) => (
-            <li key={c.id} className={c.level === "fail" ? "text-danger" : "text-warning"}>
+            <li key={c.id} className="text-danger">
               {c.label}{c.detail ? <span className="text-muted"> · {c.detail}</span> : null}
             </li>
           ))}

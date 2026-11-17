@@ -16,6 +16,11 @@ describe("checkDraft", () => {
     expect(level("Check out our Black Friday deal!", "marketing")).toBe("fail");
     expect(level("Please reply with your password and we'll check.", "sensitive")).toBe("fail");
   });
+  it("doesn't treat a negated promise as a promise", () => {
+    expect(level("We'll pass it on, though I can't promise a timeline from here.", "promises")).toBe("pass");
+    expect(level("There's no refund yet, but DM us.", "promises")).toBe("pass");
+    expect(level("We promise it'll be fixed.", "promises")).toBe("fail");
+  });
   it("allows the official support link but not others", () => {
     expect(level("See support.onepeloton.com for steps.", "links")).toBe("pass");
     expect(level("Try pelowrapped.com instead.", "links")).toBe("fail");
