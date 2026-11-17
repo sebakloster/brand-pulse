@@ -27,9 +27,7 @@ export default async function Home() {
                 </div>
               </Card.Header>
               <Card.Footer className="text-sm">
-                {!b.enabled ? (
-                  <span className="text-muted">Paused</span>
-                ) : b.spikes > 0 ? (
+                {b.spikes > 0 ? (
                   <span className="flex items-center gap-2 text-danger">
                     <span className="size-2 animate-pulse rounded-full bg-danger" />
                     A thread is blowing up

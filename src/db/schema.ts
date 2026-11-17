@@ -2,6 +2,7 @@
 import {
   pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, real, uuid, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const mentionKind = pgEnum("mention_kind", ["post", "comment"]);
 export const pipelineStatus = pgEnum("pipeline_status", [
@@ -18,7 +19,7 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull(
 
 export const brands = pgTable("brands", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(),
   domain: text("domain"),
   description: text("description").notNull().default(""),
   searchTerms: text("search_terms").array().notNull().default([]),
@@ -34,7 +35,12 @@ export const brands = pgTable("brands", {
   enabled: boolean("enabled").notNull().default(true),
   backfillDays: integer("backfill_days").notNull().default(2),
   createdAt: createdAt(),
-});
+  // Deleting a brand only hides it: it stops being checked, analyzed and emailed; its data stays.
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (t) => [
+  // Names are unique among live brands, so a deleted brand's name can be reused.
+  uniqueIndex("brands_name_live_idx").on(t.name).where(sql`${t.deletedAt} is null`),
+]);
 
 export const runs = pgTable("runs", {
   id: uuid("id").primaryKey().defaultRandom(),

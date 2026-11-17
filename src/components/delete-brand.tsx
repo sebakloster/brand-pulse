@@ -1,25 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Label, Modal, TextField, toast } from "@heroui/react";
+import { Button, Modal, toast } from "@heroui/react";
 import { TrashBin } from "@gravity-ui/icons";
 import { deleteBrand } from "@/app/brand-actions";
 
-/** Permanent delete, behind a dialog where you type the brand's name. */
+/** Removes the brand from the app and stops its checks and emails. */
 export function DeleteBrand({ brandId, name }: { brandId: string; name: string }) {
   const router = useRouter();
-  const [typed, setTyped] = useState("");
   const [pending, start] = useTransition();
-  const matches = typed.trim() === name;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="max-w-md text-sm text-muted">
-        Removes the brand and everything found for it. This can&apos;t be undone.
+        Stops all checks and emails for this brand and removes it from your brands.
       </p>
       <Modal>
-        <Button variant="danger-soft" onPress={() => setTyped("")}>
+        <Button variant="danger-soft">
           <TrashBin className="size-4" /> Delete brand
         </Button>
         <Modal.Backdrop>
@@ -29,24 +27,18 @@ export function DeleteBrand({ brandId, name }: { brandId: string; name: string }
               <Modal.Header>
                 <Modal.Heading>Delete {name}?</Modal.Heading>
               </Modal.Header>
-              <Modal.Body className="space-y-4">
+              <Modal.Body>
                 <p className="text-sm text-muted">
-                  All of {name}&apos;s mentions, replies, drafts and alerts will be permanently deleted.
-                  What you&apos;ve already spent stays in your monthly total.
+                  {name} will no longer be checked, and you won&apos;t get emails or alerts about it.
                 </p>
-                <TextField value={typed} onChange={setTyped} className="w-full">
-                  <Label>Type <span className="font-semibold text-foreground">{name}</span> to confirm</Label>
-                  <Input autoComplete="off" />
-                </TextField>
               </Modal.Body>
               <Modal.Footer>
                 <Button variant="tertiary" slot="close">Cancel</Button>
                 <Button
                   variant="danger"
-                  isDisabled={!matches}
                   isPending={pending}
                   onPress={() => start(async () => {
-                    const r = await deleteBrand(brandId, typed);
+                    const r = await deleteBrand(brandId);
                     if (r.ok) {
                       toast.success(`${name} deleted`);
                       router.push("/");
@@ -55,7 +47,7 @@ export function DeleteBrand({ brandId, name }: { brandId: string; name: string }
                     }
                   })}
                 >
-                  Delete permanently
+                  Delete brand
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

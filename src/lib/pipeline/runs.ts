@@ -1,6 +1,6 @@
 // Starting and collecting scraper runs. Runs are started and never awaited
 // inside a request; each tick checks the ones in progress and ingests finished ones.
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ApifySource, FixtureSource, getRedditSource, type RedditSource } from "@/lib/reddit/source";
 import { applyRulesForBrand, ingestRun } from "./ingest";
@@ -106,7 +106,7 @@ async function startSnapshotRun(brand: Brand, source: RedditSource) {
 /** Brands whose scheduled live polling is due. */
 export async function dueBrands() {
   const active = await db.select().from(brands)
-    .where(and(eq(brands.enabled, true), eq(brands.livePollingEnabled, true)));
+    .where(and(eq(brands.enabled, true), eq(brands.livePollingEnabled, true), isNull(brands.deletedAt)));
   const due: Brand[] = [];
   for (const b of active) {
     const [last] = await db.select({ at: runs.startedAt }).from(runs)

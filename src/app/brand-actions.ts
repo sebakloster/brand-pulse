@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
@@ -63,15 +63,15 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     searchTerms: parsed.data.searchTerms.length ? parsed.data.searchTerms : [parsed.data.name],
   };
 
-  // Names are unique (case-insensitive here, so "dahon" can't sneak in next to "Dahon").
+  // Names are unique among live brands (case-insensitive here, so "dahon" can't sneak in next to "Dahon").
   const [taken] = await db.select({ id: brands.id }).from(brands)
-    .where(and(sql`lower(${brands.name}) = lower(${data.name})`, id ? ne(brands.id, Id.parse(id)) : undefined));
+    .where(and(sql`lower(${brands.name}) = lower(${data.name})`, isNull(brands.deletedAt), id ? ne(brands.id, Id.parse(id)) : undefined));
   if (taken) return { error: `A brand called ${data.name} already exists.`, values: echo() };
 
   let createdId: string | null = null;
   try {
     if (id) {
-      const [current] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
+      const [current] = await db.select().from(brands).where(and(eq(brands.id, Id.parse(id)), isNull(brands.deletedAt)));
       if (!current) return { error: "This brand no longer exists.", values: echo() };
       // Editing the voice guide bumps its version, so drafts show which guide wrote them.
       const voiceVersion = current.voiceGuide !== data.voiceGuide ? current.voiceVersion + 1 : current.voiceVersion;
@@ -127,38 +127,18 @@ export async function suggestBrand(name: string, domain: string): Promise<{ ok: 
 }
 
 /**
- * Permanently removes a brand and everything found for it (mentions, analysis, drafts,
- * alerts, and raw Reddit data no other brand uses). Cost records are kept, detached from
- * the brand, so this month's spend and the budget guard stay accurate.
- * The caller must type the brand's exact name; that's checked here too, not only in the UI.
+ * Soft delete: the brand disappears from the app and is never checked, analyzed or emailed
+ * again. Nothing is removed from the database; its mentions, drafts and costs stay as they were.
  */
-export async function deleteBrand(id: string, confirmName: string): Promise<{ ok: boolean; message?: string }> {
+export async function deleteBrand(id: string): Promise<{ ok: boolean; message?: string }> {
   await requireSession();
-  const [brand] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
+  const [brand] = await db.update(brands)
+    .set({ deletedAt: new Date(), enabled: false, livePollingEnabled: false })
+    .where(and(eq(brands.id, Id.parse(id)), isNull(brands.deletedAt)))
+    .returning({ id: brands.id });
   if (!brand) return { ok: false, message: "This brand no longer exists." };
-  if (confirmName.trim() !== brand.name) return { ok: false, message: "The name doesn't match." };
-
-  const mine = sql`(select id from mentions where brand_id = ${brand.id})`;
-  await db.execute(sql`delete from drafts where mention_id in ${mine}`);
-  await db.execute(sql`delete from triage where mention_id in ${mine}`);
-  await db.execute(sql`delete from alerts where brand_id = ${brand.id}`);
-  await db.execute(sql`delete from mentions where brand_id = ${brand.id}`);
-  // Runs in flight are closed by the next collection ("Brand deleted"); raw items then lose their run link.
-  await db.execute(sql`update raw_items set run_id = null where run_id in (select id from runs where brand_id = ${brand.id})`);
-  await db.delete(brands).where(eq(brands.id, brand.id)); // runs and AI cost rows are detached (on delete set null)
-  // Raw data and engagement snapshots no remaining brand refers to.
-  await db.execute(sql`delete from raw_items r where not exists (select 1 from mentions m where m.reddit_id = r.reddit_id)`);
-  await db.execute(sql`delete from snapshots s where not exists (select 1 from mentions m where m.reddit_id = s.post_id)`);
-
   revalidatePath("/", "layout");
   return { ok: true };
-}
-
-export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEnabled", value: boolean) {
-  await requireSession();
-  await db.update(brands).set({ [z.enum(["enabled", "livePollingEnabled"]).parse(flag)]: z.boolean().parse(value) })
-    .where(eq(brands.id, Id.parse(id)));
-  revalidatePath("/", "layout");
 }
 
 /**
@@ -167,10 +147,8 @@ export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEna
  */
 export async function runNow(id: string): Promise<{ ok: boolean; message: string }> {
   await requireSession();
-  const [brand] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
+  const [brand] = await db.select().from(brands).where(and(eq(brands.id, Id.parse(id)), isNull(brands.deletedAt)));
   if (!brand) return { ok: false, message: "Brand not found." };
-  // A paused brand isn't analyzed, so a check would leave results stuck unprocessed.
-  if (!brand.enabled) return { ok: false, message: `${brand.name} is paused. Resume it in Settings to check Reddit.` };
   let source;
   try { source = liveSource(); } catch {
     return { ok: false, message: "Live Reddit checks aren't set up on this deployment (missing APIFY_TOKEN)." };

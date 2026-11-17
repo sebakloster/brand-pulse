@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@heroui/react";
 import { BrandForm } from "@/components/brand-form";
 import { DeleteBrand } from "@/components/delete-brand";
-import { AutomaticChecks, PauseBrand } from "@/components/tracking-panel";
+import { AutomaticChecks } from "@/components/tracking-panel";
 import { brandCosts, scheduleEstimates } from "@/lib/costs";
 import { timeAgo } from "@/lib/labels";
 import { recentRuns } from "@/lib/pipeline/runs";
@@ -29,7 +29,6 @@ export default async function BrandSettings({ params }: { params: Promise<{ bran
           <AutomaticChecks
             brandId={brandId}
             current={brand.livePollingEnabled ? brand.pollEveryHours : null}
-            paused={!brand.enabled}
             estimates={estimates}
           />
         </Card.Content>
@@ -60,12 +59,9 @@ export default async function BrandSettings({ params }: { params: Promise<{ bran
       )}
 
       <Card className="animate-rise" style={{ animationDelay: "180ms" }}>
-        <Card.Header><Card.Title>Pause or delete</Card.Title></Card.Header>
-        <Card.Content className="space-y-5">
-          <PauseBrand brandId={brandId} enabled={brand.enabled} />
-          <div className="border-t border-separator pt-5">
-            <DeleteBrand brandId={brandId} name={brand.name} />
-          </div>
+        <Card.Header><Card.Title>Delete brand</Card.Title></Card.Header>
+        <Card.Content>
+          <DeleteBrand brandId={brandId} name={brand.name} />
         </Card.Content>
       </Card>
     </div>

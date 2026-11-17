@@ -34,7 +34,7 @@ export async function getActivity(): Promise<Activity[]> {
           and (m.pipeline_status = 'triage_failed' or (t.importance in ('P0','P1','P2') and t.action <> 'ignore'))) as "newCount",
       (select count(*)::int from mentions m where m.brand_id = b.id and m.first_seen_at >= l.started_at
         and m.pipeline_status in ('triaged', 'triage_failed')) as found
-    from latest l join brands b on b.id = l.brand_id
+    from latest l join brands b on b.id = l.brand_id and b.deleted_at is null
     order by l.started_at desc`)).rows as (Omit<Activity, "phase"> & { status: string; ingestedAt: string | null })[];
 
   return rows.map(({ status, ingestedAt, ...r }) => ({

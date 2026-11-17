@@ -1,6 +1,6 @@
 // Read-only queries for pages. Pages only read stored data; nothing here calls an LLM.
 import "server-only";
-import { eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Action, Importance } from "@/lib/labels";
 
@@ -52,7 +52,7 @@ const COLUMNS = sql`
   p.spike_active as "threadSpiking"`;
 
 export async function listBrands() {
-  const brands = await db.select().from(schema.brands).orderBy(schema.brands.name);
+  const brands = await db.select().from(schema.brands).where(isNull(schema.brands.deletedAt)).orderBy(schema.brands.name);
   const counts = (await db.execute(sql`
     select m.brand_id,
       count(*) filter (where ${TODO})::int as todo,
@@ -66,7 +66,7 @@ export async function listBrands() {
 
 export async function getBrand(id: string) {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
-  const [b] = await db.select().from(schema.brands).where(eq(schema.brands.id, id));
+  const [b] = await db.select().from(schema.brands).where(and(eq(schema.brands.id, id), isNull(schema.brands.deletedAt)));
   return b ?? null;
 }
 

@@ -14,7 +14,7 @@ export async function getSettings() {
 }
 
 export async function buildDigestData(): Promise<DigestBrand[]> {
-  const active = await db.select().from(brands).where(eq(brands.enabled, true)).orderBy(brands.name);
+  const active = await db.select().from(brands).where(and(eq(brands.enabled, true), isNull(brands.deletedAt))).orderBy(brands.name);
   const out: DigestBrand[] = [];
   for (const b of active) {
     const items = (await db.execute(sql`
@@ -76,7 +76,7 @@ export async function sendPendingAlerts() {
   const pending = await db.select({ alert: alerts, post: mentions, brand: brands.name })
     .from(alerts)
     .innerJoin(mentions, and(eq(mentions.brandId, alerts.brandId), eq(mentions.redditId, alerts.postId), eq(mentions.kind, "post")))
-    .innerJoin(brands, eq(brands.id, alerts.brandId))
+    .innerJoin(brands, and(eq(brands.id, alerts.brandId), isNull(brands.deletedAt)))
     .where(and(isNull(alerts.emailedAt), isNull(alerts.emailError), gte(alerts.sentAt, new Date(Date.now() - 86_400_000))));
   if (!s.spikeEmails) return { sent: 0, skipped: pending.length, reason: "spike emails off" };
   let sent = 0;

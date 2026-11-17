@@ -1,6 +1,6 @@
 // The one background job. Each step picks up pending rows, so a
 // tick that runs out of time leaves the rest for the next one, and re-running is safe.
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { Deadline } from "@/lib/util";
 import { applyRulesForBrand } from "./ingest";
@@ -30,7 +30,7 @@ export async function runTick({ budgetMs = TICK_BUDGET_MS } = {}) {
     report.started = started;
 
     // 2. AI and spike steps per brand. Spikes run before drafts so spiking threads get no drafts.
-    const active = await db.select().from(schema.brands).where(eq(schema.brands.enabled, true));
+    const active = await db.select().from(schema.brands).where(and(eq(schema.brands.enabled, true), isNull(schema.brands.deletedAt)));
     for (const brand of active) {
       if (deadline.passed) break;
       const rules = await applyRulesForBrand(brand.id);

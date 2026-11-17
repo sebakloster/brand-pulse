@@ -17,7 +17,6 @@ export default async function BrandLayout({ children, params }: { children: Reac
         </Link>
         <BrandLogo name={brand.name} domain={brand.domain} size="sm" />
         <h1 className="text-xl font-semibold tracking-tight">{brand.name}</h1>
-        {!brand.enabled && <span className="text-sm text-muted">· paused</span>}
       </div>
       <BrandTabs brandId={brandId} />
       <div>{children}</div>
