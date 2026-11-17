@@ -31,19 +31,18 @@ export default async function InboxPage({ params, searchParams }: {
 
   return (
     <div className="space-y-5">
-      {view === "todo" && spikes.map((s) => (
-        <Link key={s.id} href={`/b/${brandId}/m/${s.id}`} className="animate-rise block">
+      {/* Only the single most urgent spike: one clear action, not a wall of alerts. */}
+      {view === "todo" && spikes[0] && (
+        <Link href={`/b/${brandId}/m/${spikes[0].id}`} className="animate-rise block">
           <Alert status="danger" className="lift">
             <Alert.Indicator />
             <Alert.Content>
-              <Alert.Title>A thread is blowing up in r/{s.subreddit}{s.simulated ? " (demo)" : ""}</Alert.Title>
-              <Alert.Description>
-                {s.title}. Agree one response with the client before anyone replies.
-              </Alert.Description>
+              <Alert.Title>A thread is blowing up in r/{spikes[0].subreddit}{spikes[0].simulated ? " (demo)" : ""}</Alert.Title>
+              <Alert.Description className="line-clamp-1">{spikes[0].title}</Alert.Description>
             </Alert.Content>
           </Alert>
         </Link>
-      ))}
+      )}
 
       <div className="flex flex-wrap items-center gap-1 text-sm">
         {([["todo", "To do", counts.todo], ["done", "Done", counts.done]] as const).map(([id, label, n]) => (
