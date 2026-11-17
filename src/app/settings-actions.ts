@@ -1,16 +1,11 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { sendDigest } from "@/lib/email/digest";
-
-async function requireSession() {
-  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
-}
 
 const Settings = z.object({
   emailRecipients: z.array(z.email("One of the recipients isn't a valid email address")).max(20),

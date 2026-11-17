@@ -1,19 +1,13 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { DISCARD_REASONS } from "@/lib/labels";
 
 const { mentions } = schema;
-
-// The proxy is only an optimistic check; every action verifies the session itself.
-async function requireSession() {
-  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
-}
 
 const Id = z.uuid();
 

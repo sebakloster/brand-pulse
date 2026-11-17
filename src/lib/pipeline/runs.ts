@@ -152,9 +152,17 @@ export async function collectRuns() {
       await db.update(runs).set({ status: "failed", finishedAt: new Date(), error: "Brand deleted" }).where(eq(runs.id, run.id));
       continue;
     }
-    const source = sourceFor(run.source);
-    if (!run.apifyRunId || !source) continue;
     const ageMin = (Date.now() - run.startedAt.getTime()) / 60_000;
+    const source = sourceFor(run.source);
+    if (!run.apifyRunId || !source) {
+      // A start that crashed halfway leaves a run with no external id; without this it would
+      // count as "in progress" forever and block every future check for the brand.
+      if (ageMin > RUN_LIMITS.runTimeoutMinutes) {
+        await db.update(runs).set({ status: "timed_out", finishedAt: new Date(), error: run.error ?? "never started" }).where(eq(runs.id, run.id));
+        report[run.id] = "timed_out";
+      }
+      continue;
+    }
     try {
       const state = await source.getRun(run.apifyRunId);
       if (state.status === "running") {
@@ -180,8 +188,13 @@ export async function collectRuns() {
       await applyRulesForBrand(run.brandId!);
       report[run.id] = `ingested ${ing.items}`;
     } catch (e) {
-      await db.update(runs).set({ error: `collect failed: ${e instanceof Error ? e.message : e}` }).where(eq(runs.id, run.id));
-      report[run.id] = "error";
+      // Keep retrying on later ticks, but not forever: a run we can never read times out too.
+      const expired = ageMin > RUN_LIMITS.runTimeoutMinutes * 2;
+      await db.update(runs).set({
+        error: `collect failed: ${e instanceof Error ? e.message : e}`,
+        ...(expired ? { status: "timed_out" as const, finishedAt: new Date() } : {}),
+      }).where(eq(runs.id, run.id));
+      report[run.id] = expired ? "timed_out" : "error";
     }
   }
   return report;

@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, SESSION_MAX_AGE, checkPassword, sessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, SESSION_MAX_AGE, checkPassword, safeNext, sessionToken } from "@/lib/auth";
 
 export async function login(_prev: { error?: string } | undefined, form: FormData) {
   const password = String(form.get("password") ?? "");
@@ -18,8 +18,7 @@ export async function login(_prev: { error?: string } | undefined, form: FormDat
     path: "/",
     maxAge: SESSION_MAX_AGE,
   });
-  // Only allow local paths as the redirect target (no open redirect).
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
+  redirect(safeNext(next));
 }
 
 export async function logout() {

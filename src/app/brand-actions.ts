@@ -1,23 +1,18 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { RunRefused, collectRuns, liveSource, startSearchRun } from "@/lib/pipeline/runs";
 import { runTick } from "@/lib/pipeline/tick";
 import { suggestBrandSetup, type BrandSuggestion } from "@/lib/brands/suggest";
 
 const { brands, runs } = schema;
 const Id = z.uuid();
-
-async function requireSession() {
-  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
-}
 
 const list = (v: FormDataEntryValue | null) =>
   String(v ?? "").split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
@@ -55,6 +50,7 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
     return { error: parsed.error.issues[0]?.message ?? "Invalid form", values };
   }
   const id = String(form.get("id") ?? "");
+  if (id && !Id.safeParse(id).success) return { error: "This brand no longer exists.", values: Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)])) };
   const echo = () => Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
   // Only name and website are required; searching for the brand name is the sensible default.
   const data = {
@@ -110,7 +106,7 @@ export async function setSchedule(id: string, hours: number | null) {
   const h = hours === null ? null : z.union([z.literal(6), z.literal(12), z.literal(24)]).parse(hours);
   await db.update(brands)
     .set(h === null ? { livePollingEnabled: false } : { livePollingEnabled: true, pollEveryHours: h })
-    .where(eq(brands.id, Id.parse(id)));
+    .where(and(eq(brands.id, Id.parse(id)), isNull(brands.deletedAt)));
   revalidatePath("/", "layout");
 }
 
@@ -161,14 +157,19 @@ export async function runNow(id: string): Promise<{ ok: boolean; message: string
   }
   after(async () => {
     // Collect as soon as the scrape finishes (the tracker's polling also nudges this along).
-    const until = Date.now() + 240_000;
-    while (Date.now() < until) {
-      await collectRuns();
-      const [r] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
-      if (r.status !== "running" && r.status !== "starting") break;
-      await new Promise((res) => setTimeout(res, 10_000));
+    // Best effort: the cron tick picks up anything this misses, so errors are only logged.
+    try {
+      const until = Date.now() + 240_000;
+      while (Date.now() < until) {
+        await collectRuns();
+        const [r] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
+        if (!r || (r.status !== "running" && r.status !== "starting")) break;
+        await new Promise((res) => setTimeout(res, 10_000));
+      }
+      await runTick({ budgetMs: Math.max(30_000, until - Date.now()) });
+    } catch (e) {
+      console.error("runNow follow-up failed", runId, e);
     }
-    await runTick({ budgetMs: Math.max(30_000, until - Date.now()) });
   });
   revalidatePath("/", "layout");
   return { ok: true, message: `Checking Reddit for ${brand.name}…` };

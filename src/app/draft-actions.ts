@@ -1,19 +1,14 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { generateDraft, runChecks } from "@/lib/drafts/generate";
 
 const { brands, drafts, mentions, triage } = schema;
 const Id = z.uuid();
-
-async function requireSession() {
-  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
-}
 
 /** New suggested draft, or the user's own words turned into a reply. Returns an error message instead of throwing. */
 export async function draftReply(mentionId: string, userInput?: string): Promise<{ ok: boolean; message?: string }> {
@@ -34,7 +29,9 @@ export async function draftReply(mentionId: string, userInput?: string): Promise
 export async function checkText(mentionId: string, text: string) {
   await requireSession();
   const [m] = await db.select().from(mentions).where(eq(mentions.id, Id.parse(mentionId)));
+  if (!m) return [];
   const [brand] = await db.select().from(brands).where(eq(brands.id, m.brandId));
+  if (!brand) return [];
   const [t] = await db.select().from(triage).where(eq(triage.mentionId, m.id)).orderBy(desc(triage.createdAt)).limit(1);
   return runChecks(z.string().max(5000).parse(text), brand, t?.riskFlags ?? []);
 }
@@ -45,9 +42,9 @@ export async function saveDraftStatus(draftId: string, finalText: string, status
   const [d] = await db.update(drafts)
     .set({ finalText: z.string().max(5000).parse(finalText), status: z.enum(["copied", "replied"]).parse(status) })
     .where(eq(drafts.id, Id.parse(draftId))).returning();
+  if (!d) throw new Error("Draft not found.");
   if (status === "replied") {
     await db.update(mentions).set({ userStatus: "replied" }).where(eq(mentions.id, d.mentionId));
-    revalidatePath("/", "layout");
   }
   revalidatePath("/", "layout");
 }

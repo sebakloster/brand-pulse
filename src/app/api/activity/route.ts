@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { after } from "next/server";
-import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
+import { hasSession } from "@/lib/session";
 import { getActivity } from "@/lib/activity";
 import { collectRuns } from "@/lib/pipeline/runs";
 import { runTick } from "@/lib/pipeline/tick";
@@ -13,7 +12,7 @@ export const dynamic = "force-dynamic";
 // - a finished scrape is collected right here (a quick status call; ingest is idempotent),
 // - the analysis runs in a short background tick (its lease lock makes overlaps harmless).
 export async function GET() {
-  if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) {
+  if (!(await hasSession())) {
     return new Response("Unauthorized", { status: 401 });
   }
   let activity = await getActivity();

@@ -110,7 +110,10 @@ export async function runTriage(brandId: string, deadline: Deadline, { limit = 2
   if (pending.length === 0) return stats;
 
   const byThread = new Map<string, Mention[]>();
-  for (const m of pending) byThread.set(m.postId, [...(byThread.get(m.postId) ?? []), m]);
+  for (const m of pending) {
+    const thread = byThread.get(m.postId);
+    if (thread) thread.push(m); else byThread.set(m.postId, [m]);
+  }
   const jobs = [...byThread.entries()].flatMap(([postId, ms]) => chunks(ms, MAX_ITEMS_PER_CALL).map((items) => ({ postId, items })));
 
   const results = await pMap(jobs, concurrency, async ({ postId, items }) => {

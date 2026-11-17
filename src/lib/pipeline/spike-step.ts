@@ -1,5 +1,5 @@
 // Tick step: apply spike rules to recent brand threads and raise alerts (one per thread per 24h).
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { SPIKE, assessSpike, median } from "./spikes";
 
@@ -20,6 +20,13 @@ export async function runSpikes(brandId: string) {
   const baseline = median(posts.map((p) => p.commentsPerHour).filter((r): r is number => r != null));
 
   const recent = posts.filter((p) => p.spikeSimulated || now.getTime() - p.createdAtReddit.getTime() <= SPIKE.windowHours * 3_600_000);
+
+  // Threads that aged out of the window are no longer assessed below, so clear their flag here:
+  // otherwise a thread that spiked once would show as "blowing up" forever.
+  await db.update(mentions).set({ spikeActive: false, spikeNegative: false, spikeSince: null }).where(and(
+    eq(mentions.brandId, brandId), eq(mentions.kind, "post"), eq(mentions.spikeActive, true), eq(mentions.spikeSimulated, false),
+    lt(mentions.createdAtReddit, new Date(now.getTime() - SPIKE.windowHours * 3_600_000)),
+  ));
   const stats = { checked: recent.length, spiking: 0, newAlerts: 0, baseline: Number(baseline.toFixed(2)) };
 
   for (const p of recent) {

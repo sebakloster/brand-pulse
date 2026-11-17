@@ -4,16 +4,12 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { parseItem, type NormalizedMention } from "@/lib/reddit/normalize";
 import type { RedditSource } from "@/lib/reddit/source";
+import { chunks } from "@/lib/util";
 import { applyRules, compileRules, type RuleOutcome } from "./rules";
 
 const { brands, mentions, rawItems, runs, snapshots } = schema;
 const BATCH = 200;
-
-function chunks<T>(xs: T[], n = BATCH): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
-  return out;
-}
+const batches = <T,>(xs: T[]) => chunks(xs, BATCH);
 
 export type IngestReport = {
   items: number;
@@ -44,14 +40,14 @@ export async function ingestRun(runId: string, source: RedditSource): Promise<In
   }
 
   // 1. Raw items: insert once, never modified.
-  for (const batch of chunks(parsed)) {
+  for (const batch of batches(parsed)) {
     await db.insert(rawItems)
       .values(batch.map((p) => ({ redditId: p.mention.redditId, runId, payload: p.raw as object })))
       .onConflictDoNothing();
   }
 
   // 2. Mentions: insert new; refresh engagement on ones we already have.
-  for (const batch of chunks(parsed)) {
+  for (const batch of batches(parsed)) {
     await db.insert(mentions)
       .values(batch.map(({ mention: m }) => ({
         brandId,
@@ -97,13 +93,13 @@ export async function ingestRun(runId: string, source: RedditSource): Promise<In
     numComments: m.numComments,
     upvoteRatio: m.upvoteRatio,
   }));
-  for (const batch of chunks(postSnaps)) {
+  for (const batch of batches(postSnaps)) {
     await db.insert(snapshots).values(batch).onConflictDoNothing();
   }
 
   // 4. Wipe text from raw payloads of deleted items too.
   const deletedIds = parsed.filter((p) => p.mention.isDeleted).map((p) => p.mention.redditId);
-  for (const batch of chunks(deletedIds)) {
+  for (const batch of batches(deletedIds)) {
     await db.update(rawItems)
       .set({ payload: sql`${rawItems.payload} - 'body' - 'bodyHtml' - 'title'` })
       .where(inArray(rawItems.redditId, batch));
@@ -178,12 +174,13 @@ export async function applyRulesForBrand(brandId: string) {
   const groups = new Map<string, Update[]>();
   for (const u of updates) {
     const key = JSON.stringify([u.outcome.status, "reason" in u.outcome ? u.outcome.reason : null, u.outcome.isDirectMatch, u.limitedContext]);
-    groups.set(key, [...(groups.get(key) ?? []), u]);
+    const group = groups.get(key);
+    if (group) group.push(u); else groups.set(key, [u]);
   }
   const counts: Record<string, number> = {};
   for (const [key, us] of groups) {
     const [status, reason, isDirectMatch, limitedContext] = JSON.parse(key) as [RuleOutcome["status"], string | null, boolean, boolean];
-    for (const batch of chunks(us.map((u) => u.id))) {
+    for (const batch of batches(us.map((u) => u.id))) {
       await db.update(mentions)
         .set({ pipelineStatus: status, filteredReason: reason, isDirectMatch, limitedContext })
         .where(inArray(mentions.id, batch));

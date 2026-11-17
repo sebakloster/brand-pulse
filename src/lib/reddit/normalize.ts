@@ -5,6 +5,11 @@ import { z } from "zod";
 const str = z.string();
 const optStr = z.string().nullish();
 const optNum = z.number().nullish();
+// A date the database can store: an unparseable one would fail the whole ingest batch.
+const date = z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date");
+const optDate = date.nullish();
+// Links are rendered as hrefs: only http(s), never `javascript:` or other schemes.
+const optUrl = z.string().nullish().transform((u) => (u && /^https?:\/\//i.test(u) ? u : null));
 
 const PostItem = z.object({
   dataType: z.literal("post"),
@@ -13,8 +18,8 @@ const PostItem = z.object({
   body: optStr,
   authorName: optStr,
   parsedCommunityName: str,
-  postUrl: optStr,
-  createdAt: str,
+  postUrl: optUrl,
+  createdAt: date,
   score: optNum,
   upVotes: optNum,
   commentsCount: optNum,
@@ -23,7 +28,7 @@ const PostItem = z.object({
   stickied: z.boolean().nullish(),
   distinguished: optStr,
   removalStatus: optStr,
-  crawledAt: optStr,
+  crawledAt: optDate,
 }).loose();
 
 const CommentItem = z.object({
@@ -36,13 +41,13 @@ const CommentItem = z.object({
   body: optStr,
   authorName: optStr,
   subredditName: str,
-  url: optStr,
-  commentCreatedAt: str,
+  url: optUrl,
+  commentCreatedAt: date,
   score: optNum,
   stickied: z.boolean().nullish(),
   distinguished: optStr,
   postTitle: optStr, // only on comments that came from comment search; don't rely on it
-  crawledAt: optStr,
+  crawledAt: optDate,
 }).loose();
 
 export const RawItem = z.discriminatedUnion("dataType", [PostItem, CommentItem]);

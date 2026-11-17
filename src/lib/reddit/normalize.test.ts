@@ -48,4 +48,18 @@ describe("parseItem edge cases", () => {
     });
     expect(r.ok && r.mention.isDeleted).toBe(true);
   });
+
+  const comment = { dataType: "comment", id: "abc", parsedPostId: "p1", subredditName: "pelotoncycle", commentCreatedAt: "2026-11-15T00:00:00.000Z" };
+
+  it("rejects an unparseable date instead of failing the whole ingest", () => {
+    expect(parseItem({ ...comment, commentCreatedAt: "yesterday-ish" }).ok).toBe(false);
+    expect(parseItem({ ...comment, crawledAt: "not a date" }).ok).toBe(false);
+  });
+
+  it("keeps only http(s) links, since they are rendered as hrefs", () => {
+    const bad = parseItem({ ...comment, url: "javascript:alert(1)" });
+    expect(bad.ok && bad.mention.url).toBeNull();
+    const good = parseItem({ ...comment, url: "https://www.reddit.com/r/x/comments/1/abc" });
+    expect(good.ok && good.mention.url).toBe("https://www.reddit.com/r/x/comments/1/abc");
+  });
 });

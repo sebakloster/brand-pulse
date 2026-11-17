@@ -47,6 +47,7 @@ export async function structuredCall<S extends z.ZodType>(c: Call<S>): Promise<z
   const isSonnet55 = c.model === "claude-sonnet-5-5";
   let usage: Usage = { input_tokens: 0, output_tokens: 0 };
   let servedBy = c.model;
+  let output: z.infer<S>;
   try {
     const res = await anthropic().beta.messages.parse({
       model: c.model,
@@ -67,15 +68,17 @@ export async function structuredCall<S extends z.ZodType>(c: Call<S>): Promise<z
     if (res.parsed_output == null) {
       throw new LlmError(`could not parse output (stop_reason=${res.stop_reason})`, "unparseable");
     }
-    await log(c, servedBy, usage, true, null);
-    return res.parsed_output as z.infer<S>;
+    output = res.parsed_output as z.infer<S>;
   } catch (e) {
     const err = e instanceof LlmError ? e : new LlmError(e instanceof Error ? e.message : String(e), "api");
     await log(c, servedBy, usage, false, `${err.kind}: ${err.message}`.slice(0, 500));
     throw err;
   }
+  await log(c, servedBy, usage, true, null);
+  return output;
 }
 
+/** Cost logging is bookkeeping: if it fails, the call's result still stands. */
 async function log(c: Call<z.ZodType>, model: string, u: Usage, ok: boolean, error: string | null) {
   await db.insert(schema.llmCalls).values({
     brandId: c.brandId,
@@ -88,5 +91,5 @@ async function log(c: Call<z.ZodType>, model: string, u: Usage, ok: boolean, err
     costUsd: costUsd(model, u),
     ok,
     error,
-  });
+  }).catch((e) => console.error("llm_calls log failed", e));
 }

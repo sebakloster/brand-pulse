@@ -38,3 +38,17 @@ export async function checkPassword(input: string) {
   const key = process.env.SESSION_SECRET ?? "pw";
   return safeEqual(await hmac(key, input), await hmac(key, expected));
 }
+
+/**
+ * Only local paths are allowed after login (no open redirect). Browsers read "//host" and
+ * "/\\host" as another site, so both are refused, as are control characters.
+ */
+export function safeNext(next: string) {
+  return /^\/(?![/\\])[^\x00-\x1f]*$/.test(next) ? next : "/";
+}
+
+/** Cron endpoints: `Authorization: Bearer $CRON_SECRET`, compared in constant time. */
+export function isCronRequest(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  return !!secret && safeEqual(req.headers.get("authorization") ?? "", `Bearer ${secret}`);
+}
