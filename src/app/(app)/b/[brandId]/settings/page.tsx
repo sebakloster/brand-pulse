@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card } from "@heroui/react";
 import { BrandForm } from "@/components/brand-form";
+import { DeleteBrand } from "@/components/delete-brand";
 import { AutomaticChecks, PauseBrand } from "@/components/tracking-panel";
 import { brandCosts, scheduleEstimates } from "@/lib/costs";
 import { timeAgo } from "@/lib/labels";
@@ -59,8 +60,13 @@ export default async function BrandSettings({ params }: { params: Promise<{ bran
       )}
 
       <Card className="animate-rise" style={{ animationDelay: "180ms" }}>
-        <Card.Header><Card.Title>{brand.enabled ? "Pause this brand" : "Paused"}</Card.Title></Card.Header>
-        <Card.Content><PauseBrand brandId={brandId} enabled={brand.enabled} /></Card.Content>
+        <Card.Header><Card.Title>Pause or delete</Card.Title></Card.Header>
+        <Card.Content className="space-y-5">
+          <PauseBrand brandId={brandId} enabled={brand.enabled} />
+          <div className="border-t border-separator pt-5">
+            <DeleteBrand brandId={brandId} name={brand.name} />
+          </div>
+        </Card.Content>
       </Card>
     </div>
   );

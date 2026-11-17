@@ -38,7 +38,8 @@ export const brands = pgTable("brands", {
 
 export const runs = pgTable("runs", {
   id: uuid("id").primaryKey().defaultRandom(),
-  brandId: uuid("brand_id").notNull().references(() => brands.id),
+  // Nullable: a deleted brand's runs are kept (detached) so the monthly spend stays accurate.
+  brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
   source: runSource("source").notNull(),
   purpose: text("purpose").notNull().default("search"), // search | snapshot
   apifyRunId: text("apify_run_id"),
@@ -163,7 +164,7 @@ export const alerts = pgTable("alerts", {
 
 export const llmCalls = pgTable("llm_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
-  brandId: uuid("brand_id").references(() => brands.id),
+  brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
   purpose: text("purpose").notNull(), // relevance | triage | draft | improve
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),

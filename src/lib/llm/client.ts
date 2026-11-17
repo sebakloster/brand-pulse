@@ -29,7 +29,7 @@ export class LlmError extends Error {
 }
 
 type Call<S extends z.ZodType> = {
-  purpose: "relevance" | "triage" | "draft" | "improve" | "eval";
+  purpose: "relevance" | "triage" | "draft" | "improve" | "eval" | "setup";
   brandId: string | null;
   model: string;
   /** Stable text (rubric + brand context). Cached: keep it byte-identical across calls. */

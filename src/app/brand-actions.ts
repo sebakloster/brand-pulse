@@ -10,6 +10,7 @@ import { db, schema } from "@/db";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
 import { RunRefused, collectRuns, liveSource, startSearchRun } from "@/lib/pipeline/runs";
 import { runTick } from "@/lib/pipeline/tick";
+import { suggestBrandSetup, type BrandSuggestion } from "@/lib/brands/suggest";
 
 const { brands, runs } = schema;
 const Id = z.uuid();
@@ -23,9 +24,9 @@ const list = (v: FormDataEntryValue | null) =>
 
 const BrandForm = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
-  domain: z.string().trim().max(200).optional(),
-  description: z.string().trim().min(10, "Describe the brand in a sentence or two, so the AI can tell it apart from other meanings").max(2000),
-  searchTerms: z.array(z.string().max(80)).min(1, "At least one search term").max(10),
+  domain: z.string().trim().min(1, "Website is required").max(200),
+  description: z.string().trim().max(2000),
+  searchTerms: z.array(z.string().max(80)).max(10),
   exclusionTerms: z.array(z.string().max(80)).max(50),
   blockedSubreddits: z.array(z.string().max(60)).max(100),
   brandSubreddits: z.array(z.string().max(60)).max(30),
@@ -40,7 +41,7 @@ export type BrandFormState = { error?: string; saved?: boolean; values?: Record<
 export async function saveBrand(_prev: BrandFormState | undefined, form: FormData): Promise<BrandFormState> {
   await requireSession();
   const parsed = BrandForm.safeParse({
-    name: form.get("name"), domain: form.get("domain") || undefined, description: form.get("description"),
+    name: form.get("name"), domain: form.get("domain") ?? "", description: form.get("description") ?? "",
     searchTerms: list(form.get("searchTerms")), exclusionTerms: list(form.get("exclusionTerms")),
     blockedSubreddits: list(form.get("blockedSubreddits")).map((s) => s.replace(/^\/?r\//i, "").toLowerCase()),
     brandSubreddits: list(form.get("brandSubreddits")).map((s) => s.replace(/^\/?r\//i, "").toLowerCase()),
@@ -55,7 +56,12 @@ export async function saveBrand(_prev: BrandFormState | undefined, form: FormDat
   }
   const id = String(form.get("id") ?? "");
   const echo = () => Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
-  const data = { ...parsed.data, domain: cleanDomain(parsed.data.domain) };
+  // Only name and website are required; searching for the brand name is the sensible default.
+  const data = {
+    ...parsed.data,
+    domain: cleanDomain(parsed.data.domain),
+    searchTerms: parsed.data.searchTerms.length ? parsed.data.searchTerms : [parsed.data.name],
+  };
 
   // Names are unique (case-insensitive here, so "dahon" can't sneak in next to "Dahon").
   const [taken] = await db.select({ id: brands.id }).from(brands)
@@ -106,6 +112,46 @@ export async function setSchedule(id: string, hours: number | null) {
     .set(h === null ? { livePollingEnabled: false } : { livePollingEnabled: true, pollEveryHours: h })
     .where(eq(brands.id, Id.parse(id)));
   revalidatePath("/", "layout");
+}
+
+/** "Fill in with AI": drafts every setup field from the brand's name and website. Nothing is saved. */
+export async function suggestBrand(name: string, domain: string): Promise<{ ok: true; suggestion: BrandSuggestion } | { ok: false; message: string }> {
+  await requireSession();
+  const n = name.trim(), d = cleanDomain(domain);
+  if (!n || !d) return { ok: false, message: "Add the brand's name and website first." };
+  try {
+    return { ok: true, suggestion: await suggestBrandSetup(n, d) };
+  } catch {
+    return { ok: false, message: "The AI couldn't draft this brand right now. Please try again." };
+  }
+}
+
+/**
+ * Permanently removes a brand and everything found for it (mentions, analysis, drafts,
+ * alerts, and raw Reddit data no other brand uses). Cost records are kept, detached from
+ * the brand, so this month's spend and the budget guard stay accurate.
+ * The caller must type the brand's exact name; that's checked here too, not only in the UI.
+ */
+export async function deleteBrand(id: string, confirmName: string): Promise<{ ok: boolean; message?: string }> {
+  await requireSession();
+  const [brand] = await db.select().from(brands).where(eq(brands.id, Id.parse(id)));
+  if (!brand) return { ok: false, message: "This brand no longer exists." };
+  if (confirmName.trim() !== brand.name) return { ok: false, message: "The name doesn't match." };
+
+  const mine = sql`(select id from mentions where brand_id = ${brand.id})`;
+  await db.execute(sql`delete from drafts where mention_id in ${mine}`);
+  await db.execute(sql`delete from triage where mention_id in ${mine}`);
+  await db.execute(sql`delete from alerts where brand_id = ${brand.id}`);
+  await db.execute(sql`delete from mentions where brand_id = ${brand.id}`);
+  // Runs in flight are closed by the next collection ("Brand deleted"); raw items then lose their run link.
+  await db.execute(sql`update raw_items set run_id = null where run_id in (select id from runs where brand_id = ${brand.id})`);
+  await db.delete(brands).where(eq(brands.id, brand.id)); // runs and AI cost rows are detached (on delete set null)
+  // Raw data and engagement snapshots no remaining brand refers to.
+  await db.execute(sql`delete from raw_items r where not exists (select 1 from mentions m where m.reddit_id = r.reddit_id)`);
+  await db.execute(sql`delete from snapshots s where not exists (select 1 from mentions m where m.reddit_id = s.post_id)`);
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export async function setBrandFlag(id: string, flag: "enabled" | "livePollingEnabled", value: boolean) {

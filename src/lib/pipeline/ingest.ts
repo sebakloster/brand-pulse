@@ -26,6 +26,8 @@ export type IngestReport = {
 export async function ingestRun(runId: string, source: RedditSource): Promise<IngestReport> {
   const [run] = await db.select().from(runs).where(eq(runs.id, runId));
   if (!run?.apifyRunId) throw new Error(`run ${runId} has no external id`);
+  if (!run.brandId) throw new Error(`run ${runId} belongs to a deleted brand`);
+  const brandId = run.brandId;
 
   const parsed: { mention: NormalizedMention; raw: unknown }[] = [];
   const invalid: { id: string | null; error: string }[] = [];
@@ -52,7 +54,7 @@ export async function ingestRun(runId: string, source: RedditSource): Promise<In
   for (const batch of chunks(parsed)) {
     await db.insert(mentions)
       .values(batch.map(({ mention: m }) => ({
-        brandId: run.brandId,
+        brandId,
         redditId: m.redditId,
         kind: m.kind,
         postId: m.postId,

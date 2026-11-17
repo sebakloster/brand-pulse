@@ -134,6 +134,11 @@ export async function collectRuns() {
     return sources[kind];
   };
   for (const run of open) {
+    if (!run.brandId) {
+      // The brand was deleted while this run was in flight: close it, never ingest it.
+      await db.update(runs).set({ status: "failed", finishedAt: new Date(), error: "Brand deleted" }).where(eq(runs.id, run.id));
+      continue;
+    }
     const source = sourceFor(run.source);
     if (!run.apifyRunId || !source) continue;
     const ageMin = (Date.now() - run.startedAt.getTime()) / 60_000;
@@ -158,7 +163,7 @@ export async function collectRuns() {
         status: "succeeded", finishedAt: new Date(), costUsd: state.costUsd, costDetail: state.costDetail as object,
         capHit, warning: capHit ? "Hit the post cap: some mentions in this window may be missing. Poll more often or raise the cap." : null,
       }).where(eq(runs.id, run.id));
-      await applyRulesForBrand(run.brandId);
+      await applyRulesForBrand(run.brandId!);
       report[run.id] = `ingested ${ing.items}`;
     } catch (e) {
       await db.update(runs).set({ error: `collect failed: ${e instanceof Error ? e.message : e}` }).where(eq(runs.id, run.id));
