@@ -19,6 +19,14 @@ export const RUN_LIMITS = {
   overlapMinutes: 60,
 };
 
+/** A brand's first live check reaches further back and fetches more, to build its history in one go. */
+export const FIRST_RUN_LIMITS = {
+  maxPostsCount: 200,
+  maxCommentsPerPost: 50,
+  maxCommentsCount: 1000,
+  maxChargePerRunUsd: 3.0, // or whatever is left of the monthly budget, if less
+};
+
 export function monthStart(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
@@ -56,13 +64,18 @@ async function inProgress(brandId: string) {
 
 export async function startSearchRun(brand: Brand, { manual = false, source = getRedditSource() } = {}) {
   if (await inProgress(brand.id)) throw new RunRefused("A run for this brand is already in progress.");
+  const last = await cursor(brand.id, source.kind);
+  const first = !last;
+  const limits = first ? FIRST_RUN_LIMITS : RUN_LIMITS;
+  let charge: number = limits.maxChargePerRunUsd;
   if (source.kind === "apify") {
     const [spent, limit] = await Promise.all([apifySpendThisMonth(), budget()]);
-    if (spent + RUN_LIMITS.maxChargePerRunUsd > limit) {
+    // The first check may use less than its full cap if that's all the budget has left.
+    charge = Math.min(charge, limit - spent);
+    if (charge < RUN_LIMITS.maxChargePerRunUsd) {
       throw new RunRefused(`Monthly scraper budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Raise it in Settings.`);
     }
   }
-  const last = await cursor(brand.id, source.kind);
   const since = last
     ? new Date(last.getTime() - RUN_LIMITS.overlapMinutes * 60_000)
     : new Date(Date.now() - brand.backfillDays * 86_400_000);
@@ -72,10 +85,10 @@ export async function startSearchRun(brand: Brand, { manual = false, source = ge
       searchTerms: brand.searchTerms,
       postedAfter: since,
       commentedAfter: since,
-      maxPostsCount: RUN_LIMITS.maxPostsCount,
-      maxCommentsPerPost: RUN_LIMITS.maxCommentsPerPost,
-      maxCommentsCount: RUN_LIMITS.maxCommentsCount,
-      maxTotalChargeUsd: RUN_LIMITS.maxChargePerRunUsd,
+      maxPostsCount: limits.maxPostsCount,
+      maxCommentsPerPost: limits.maxCommentsPerPost,
+      maxCommentsCount: limits.maxCommentsCount,
+      maxTotalChargeUsd: Math.round(charge * 100) / 100,
     });
     await db.update(runs).set({ apifyRunId: started.externalId, input: started.input as object, status: "running" }).where(eq(runs.id, row.id));
   } catch (e) {
@@ -158,7 +171,8 @@ export async function collectRuns() {
       }
       const ing = await ingestRun(run.id, source);
       // A cap hit means the window may have more items than we fetched: say so (never silent).
-      const capHit = run.purpose === "search" && ing.posts >= RUN_LIMITS.maxPostsCount;
+      const postCap = (run.input as { maxPostsCount?: number } | null)?.maxPostsCount ?? RUN_LIMITS.maxPostsCount;
+      const capHit = run.purpose === "search" && ing.posts >= postCap;
       await db.update(runs).set({
         status: "succeeded", finishedAt: new Date(), costUsd: state.costUsd, costDetail: state.costDetail as object,
         capHit, warning: capHit ? "Hit the post cap: some mentions in this window may be missing. Poll more often or raise the cap." : null,

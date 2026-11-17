@@ -78,6 +78,13 @@
       "when": 1794884893512,
       "tag": "0010_soft_delete_brands",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794886711809,
+      "tag": "0011_first_check_two_weeks",
+      "breakpoints": true
     }
   ]
 }

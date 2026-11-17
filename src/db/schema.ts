@@ -33,7 +33,7 @@ export const brands = pgTable("brands", {
   pollEveryHours: integer("poll_every_hours").notNull().default(6),
   livePollingEnabled: boolean("live_polling_enabled").notNull().default(false),
   enabled: boolean("enabled").notNull().default(true),
-  backfillDays: integer("backfill_days").notNull().default(2),
+  backfillDays: integer("backfill_days").notNull().default(14),
   createdAt: createdAt(),
   // Deleting a brand only hides it: it stops being checked, analyzed and emailed; its data stays.
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

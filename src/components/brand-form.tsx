@@ -172,7 +172,8 @@ export function BrandForm({ brand }: { brand?: Brand }) {
           <div className="grid gap-5 sm:grid-cols-2">
             <Field name="supportUrl" label="Support link" value={v.supportUrl} />
             <Field name="backfillDays" label="First check looks back (days)" type="number"
-              value={state?.values?.backfillDays ?? b.backfillDays ?? 2} />
+              hint="The first check also fetches more (up to 200 posts)."
+              value={state?.values?.backfillDays ?? b.backfillDays ?? 14} />
           </div>
         </div>
       </div>

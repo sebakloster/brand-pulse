@@ -33,7 +33,7 @@ const BrandForm = z.object({
   neverDo: z.array(z.string().max(200)).max(30),
   voiceGuide: z.string().max(20000),
   supportUrl: z.string().trim().max(200).optional(),
-  backfillDays: z.coerce.number().int().min(1).max(7),
+  backfillDays: z.coerce.number().int().min(1).max(30),
 });
 
 export type BrandFormState = { error?: string; saved?: boolean; values?: Record<string, string> };
