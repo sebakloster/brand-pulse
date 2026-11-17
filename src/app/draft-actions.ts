@@ -15,12 +15,19 @@ async function requireSession() {
   if (!(await isValidSession((await cookies()).get(SESSION_COOKIE)?.value))) throw new Error("Not signed in.");
 }
 
-/** New suggested draft, or the user's words rewritten in the brand voice ("Improve"). */
-export async function draftReply(mentionId: string, userInput?: string) {
+/** New suggested draft, or the user's own words turned into a reply. Returns an error message instead of throwing. */
+export async function draftReply(mentionId: string, userInput?: string): Promise<{ ok: boolean; message?: string }> {
   await requireSession();
-  const input = userInput?.trim() ? z.string().max(1500).parse(userInput.trim()) : undefined;
-  await generateDraft(Id.parse(mentionId), input);
+  const input = userInput?.trim() ? z.string().max(1500).safeParse(userInput.trim()) : undefined;
+  if (input && !input.success) return { ok: false, message: "That's too long. Keep it under 1,500 characters." };
+  try {
+    await generateDraft(Id.parse(mentionId), input?.data);
+  } catch (e) {
+    console.error("draftReply failed", mentionId, e);
+    return { ok: false, message: "The AI couldn't write a reply this time. Please try again." };
+  }
   revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /** Re-run the code checks on text the user edited by hand (no LLM call). */

@@ -24,6 +24,9 @@ const RULES: { id: string; label: string; level: "warn" | "fail"; re: RegExp; de
   { id: "corporate", label: "Human tone", level: "warn",
     re: /(apologi[sz]e for (any|the) inconvenience|valued (customer|member)|we take (this|your concern) (very )?seriously|as per|kindly)/i,
     detail: "Corporate phrasing" },
+  { id: "ai_tone", label: "Sounds human", level: "warn",
+    re: /(understand (your|the|how) frustrat\w*|we hear you|rest assured|don't hesitate|feel free to|happy to help|thanks for (sharing|reaching out|bringing)|great question|hey there|we appreciate your|—)/i,
+    detail: "Stock phrasing that reads as AI or a support macro" },
   { id: "blame", label: "No blaming partners", level: "warn",
     re: /\b((apple|garmin|strava|fitbit|the contractor|the delivery partner)'s fault|(caused|broken) by (apple|garmin|strava|fitbit|the contractor)|(on|from) (apple|garmin|strava|fitbit)'s (side|end))\b/i,
     detail: "Blames a partner for the problem" },
@@ -36,9 +39,9 @@ export function checkDraft(text: string, ctx: CheckContext): Check[] {
   const checks: Check[] = [];
   const t = text.trim();
 
-  checks.push(t.length <= 600
-    ? { id: "length", label: "Short (Reddit-length)", level: t.length <= 500 ? "pass" : "warn", detail: `${t.length} characters` }
-    : { id: "length", label: "Short (Reddit-length)", level: "fail", detail: `${t.length} characters (max 600)` });
+  checks.push(t.length <= 400
+    ? { id: "length", label: "Short", level: "pass", detail: `${t.length} characters` }
+    : { id: "length", label: "Short", level: t.length <= 600 ? "warn" : "fail", detail: `${t.length} characters. Aim for under 400.` });
 
   const badLinks = [...t.matchAll(URL_RE)].map((m) => m[0])
     .filter((u) => !ctx.allowedHosts.some((h) => u.toLowerCase().replace(/^https?:\/\//, "").startsWith(h)));
@@ -57,10 +60,11 @@ export function checkDraft(text: string, ctx: CheckContext): Check[] {
     ? { id: "calm", label: "Calm punctuation", level: "warn", detail: [bangs > 1 && `${bangs} exclamation marks`, emoji && "emoji"].filter(Boolean).join(", ") }
     : { id: "calm", label: "Calm punctuation", level: "pass" });
 
-  const signOff = new RegExp(`${ctx.brandName} team\\s*$`, "i").test(t);
-  checks.push({ id: "signoff", label: "Signed by a person", level: signOff ? "pass" : "warn", detail: signOff ? undefined : `End with "— [first name], ${ctx.brandName} team"` });
+  if (new RegExp(`${ctx.brandName} team\\.?\\s*$`, "i").test(t)) {
+    checks.push({ id: "signoff", label: "No signature", level: "warn", detail: "The account name already shows who's replying" });
+  }
 
-  const placeholders = [...t.matchAll(/\[(?!first name\])[^\]]{2,30}\]/gi)].map((m) => m[0]);
+  const placeholders = [...t.matchAll(/\[[^\]]{2,30}\]/g)].map((m) => m[0]);
   if (placeholders.length) checks.push({ id: "placeholders", label: "No unfilled placeholders", level: "warn", detail: placeholders.join(", ") });
 
   if (ctx.threadFlags.includes("named_staff")) {
@@ -71,4 +75,11 @@ export function checkDraft(text: string, ctx: CheckContext): Check[] {
 
 export function worstLevel(checks: Check[]): Check["level"] {
   return checks.some((c) => c.level === "fail") ? "fail" : checks.some((c) => c.level === "warn") ? "warn" : "pass";
+}
+
+/** Removes a trailing sign-off ("— Sam, Peloton team") and em dashes, in case the model adds them anyway. */
+export function tidyReply(text: string, brandName: string) {
+  const brand = brandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const signOff = new RegExp(`(?:^|\\n|[—–-])\\s*(?:\\[?[\\p{L} ]{1,30}\\]?,?\\s+)?(?:the\\s+)?${brand}\\s+team\\.?\\s*$`, "iu");
+  return text.trim().replace(signOff, "").trim().replace(/\s*—\s*/g, ", ");
 }

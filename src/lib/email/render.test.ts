@@ -3,7 +3,7 @@ import { digestSubject, renderDigest, renderSpikeAlert, type DigestBrand } from 
 import { localDay } from "./send";
 
 const brand = (over: Partial<DigestBrand> = {}): DigestBrand => ({
-  name: "Peloton", counts: { P0: 0, P1: 0, P2: 0, replies: 0 }, spikes: [], items: [], newToday: 0, ...over,
+  id: "b1", name: "Peloton", counts: { P0: 0, P1: 0, P2: 0, replies: 0 }, spikes: [], items: [], newToday: 0, ...over,
 });
 
 describe("digest", () => {
@@ -20,7 +20,7 @@ describe("digest", () => {
       items: [{ id: "abc", importance: "P1", action: "reply", routeTo: "support", subreddit: "pelotoncycle", reason: "Screen failing", isNew: true }],
     });
     const { text } = renderDigest([b], "2026-11-16", "https://app");
-    expect(text).toContain("[Today] Reply suggested · r/pelotoncycle · new: Screen failing https://app/m/abc");
+    expect(text).toContain("[Today] Reply suggested · r/pelotoncycle · new: Screen failing https://app/b/b1/m/abc");
     expect(digestSubject([b], "2026-11-16")).toBe("Reddit digest 2026-11-16: 1 urgent, 2 for today");
   });
 
@@ -33,7 +33,7 @@ describe("digest", () => {
   });
 
   it("labels simulated spikes", () => {
-    const alert = renderSpikeAlert({ brand: "Peloton", id: "1", title: "t", subreddit: "s", reason: "+60 comments", negative: true, simulated: true }, "https://app");
+    const alert = renderSpikeAlert({ brand: "Peloton", brandId: "b1", id: "1", title: "t", subreddit: "s", reason: "+60 comments", negative: true, simulated: true }, "https://app");
     expect(alert.subject).toContain("simulated");
   });
 });

@@ -31,6 +31,7 @@ export async function buildDigestData(): Promise<DigestBrand[]> {
       select count(*)::int as n from mentions
       where brand_id = ${b.id} and first_seen_at > now() - interval '24 hours' and pipeline_status = 'triaged'`)).rows as { n: number }[];
     out.push({
+      id: b.id,
       name: b.name,
       counts: {
         P0: items.filter((i) => i.importance === "P0").length,
@@ -73,16 +74,16 @@ export async function sendDigest({ force = false } = {}) {
 /** Instant spike emails: one per alert row (alerts are already de-duplicated per thread per 24h). */
 export async function sendPendingAlerts() {
   const s = await getSettings();
-  const pending = await db.select({ alert: alerts, post: mentions, brand: brands.name })
+  const pending = await db.select({ alert: alerts, post: mentions, brand: brands.name, brandId: brands.id })
     .from(alerts)
     .innerJoin(mentions, and(eq(mentions.brandId, alerts.brandId), eq(mentions.redditId, alerts.postId), eq(mentions.kind, "post")))
     .innerJoin(brands, and(eq(brands.id, alerts.brandId), isNull(brands.deletedAt)))
     .where(and(isNull(alerts.emailedAt), isNull(alerts.emailError), gte(alerts.sentAt, new Date(Date.now() - 86_400_000))));
   if (!s.spikeEmails) return { sent: 0, skipped: pending.length, reason: "spike emails off" };
   let sent = 0;
-  for (const { alert, post, brand } of pending) {
+  for (const { alert, post, brand, brandId } of pending) {
     const msg = renderSpikeAlert({
-      brand, id: post.id, title: post.title ?? "", subreddit: post.subreddit, reason: post.spikeReason ?? "Thread is spiking",
+      brand, brandId, id: post.id, title: post.title ?? "", subreddit: post.subreddit, reason: post.spikeReason ?? "Thread is spiking",
       negative: post.spikeNegative, simulated: post.spikeSimulated,
     }, appUrl());
     const res = await sendEmail({ to: s.emailRecipients, ...msg, idempotencyKey: `alert/${alert.id}` });

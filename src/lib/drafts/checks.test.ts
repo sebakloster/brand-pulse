@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkDraft, worstLevel, type CheckContext } from "./checks";
+import { checkDraft, tidyReply, worstLevel, type CheckContext } from "./checks";
 
 const ctx: CheckContext = { brandName: "Peloton", allowedHosts: ["support.onepeloton.com", "onepeloton.com"], threadFlags: [] };
 const level = (text: string, id: string, c = ctx) => checkDraft(text, c).find((x) => x.id === id)?.level;
 
-const GOOD = "That's a long wait, sorry you've had to chase it. Can you DM us your case number so we can look into it? — [first name], Peloton team";
+const GOOD = "That's a long wait, sorry you've had to chase it. Can you DM us your case number so we can look into it?";
 
 describe("checkDraft", () => {
   it("passes a good reply", () => {
@@ -20,11 +20,13 @@ describe("checkDraft", () => {
     expect(level("See support.onepeloton.com for steps.", "links")).toBe("pass");
     expect(level("Try pelowrapped.com instead.", "links")).toBe("fail");
   });
-  it("warns on corporate tone, emoji, missing sign-off and placeholders", () => {
+  it("warns on corporate or AI tone, emoji, signatures and placeholders", () => {
     expect(level("We apologize for any inconvenience.", "corporate")).toBe("warn");
+    expect(level("I understand your frustration, rest assured we're on it.", "ai_tone")).toBe("warn");
     expect(level("Great!! 🎉", "calm")).toBe("warn");
-    expect(level("Sorry about that.", "signoff")).toBe("warn");
-    expect(level("DM us your [order number]. — [first name], Peloton team", "placeholders")).toBe("warn");
+    expect(level("Sorry about that. — Sam, Peloton team", "signoff")).toBe("warn");
+    expect(level("Sorry about that.", "signoff")).toBeUndefined();
+    expect(level("DM us your [order number].", "placeholders")).toBe("warn");
   });
   it("fails replies that are too long", () => {
     expect(level("a".repeat(650), "length")).toBe("fail");
@@ -36,5 +38,14 @@ describe("checkDraft", () => {
     expect(level("Could you DM us so we can look at the Garmin issue again?", "blame")).toBe("pass");
     expect(level("This is caused by Apple, not us.", "blame")).toBe("warn");
     expect(level("Sounds like it's Garmin's fault.", "blame")).toBe("warn");
+  });
+});
+
+describe("tidyReply", () => {
+  it("drops sign-offs and em dashes", () => {
+    expect(tidyReply("Sorry about that. DM us your case number?\n\n— Sam, Peloton team", "Peloton")).toBe("Sorry about that. DM us your case number?");
+    expect(tidyReply("Sorry about that. — [first name], Peloton team", "Peloton")).toBe("Sorry about that.");
+    expect(tidyReply("Good catch — that's a bug.", "Peloton")).toBe("Good catch, that's a bug.");
+    expect(tidyReply("Ask the Peloton team on the forum.", "Peloton")).toBe("Ask the Peloton team on the forum.");
   });
 });

@@ -66,7 +66,7 @@ Fields:
 - neverDo: 5–7 rules for public replies from the brand, written to complete "The brand never …". Include the universal ones (promising outcomes, refunds or dates; medical, legal or financial advice; commenting on named staff; announcing unpublished prices or deals; arguing with users) and add brand-specific risks.
 - voiceGuide: a plain-text voice guide for replies on Reddit with these sections, in this order:
   WHO IS SPEAKING / VOICE (this, not that) / REDDIT NORMS / NEVER / PLAYBOOKS (complaint, question, bug or product issue, praise, a thread blowing up) / EXAMPLES (4–6 short example replies).
-  Write it for this brand's tone as shown on its website. Replies are short (1–4 sentences), human, open about being the brand, no marketing, no links except the support site, and end with "— [first name], <Brand> team".
+  Write it for this brand's tone as shown on its website. Replies are short (1–3 sentences), sound like a real person, are open about being the brand, have no marketing, no links except the support site, and no signature or sign-off.
 - supportUrl: the brand's official help/support site if you know it or see it on the page, else null.
 Write the fields themselves only: no caveats, disclaimers or notes about what to verify.
 
