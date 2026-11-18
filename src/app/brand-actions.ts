@@ -10,6 +10,7 @@ import { requireSession } from "@/lib/session";
 import { RunRefused, collectRuns, liveSource, startSearchRun } from "@/lib/pipeline/runs";
 import { runTick } from "@/lib/pipeline/tick";
 import { suggestBrandSetup, type BrandSuggestion } from "@/lib/brands/suggest";
+import { blankToNaN } from "@/lib/util";
 
 const { brands, runs } = schema;
 const Id = z.uuid();
@@ -28,7 +29,8 @@ const BrandForm = z.object({
   neverDo: z.array(z.string().max(200)).max(30),
   voiceGuide: z.string().max(20000),
   supportUrl: z.string().trim().max(200).optional(),
-  backfillDays: z.coerce.number().int().min(1).max(30),
+  backfillDays: z.preprocess(blankToNaN, z.coerce.number({ error: "Add how many days the first check looks back" })
+    .int("Days must be a whole number").min(1, "The first check looks back 1 to 30 days").max(30, "The first check looks back 1 to 30 days")),
 });
 
 export type BrandFormState = { error?: string; saved?: boolean; values?: Record<string, string> };
@@ -158,15 +160,18 @@ export async function runNow(id: string): Promise<{ ok: boolean; message: string
   after(async () => {
     // Collect as soon as the scrape finishes (the tracker's polling also nudges this along).
     // Best effort: the cron tick picks up anything this misses, so errors are only logged.
+    // Everything here must finish inside the function's 300 s limit, or the tick is killed
+    // mid-step: wait for the scrape for up to ~3 min, then give analysis what's left of ~4.5 min.
     try {
-      const until = Date.now() + 240_000;
-      while (Date.now() < until) {
+      const started = Date.now();
+      const waitUntil = started + 180_000;
+      while (Date.now() < waitUntil) {
         await collectRuns();
         const [r] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
         if (!r || (r.status !== "running" && r.status !== "starting")) break;
         await new Promise((res) => setTimeout(res, 10_000));
       }
-      await runTick({ budgetMs: Math.max(30_000, until - Date.now()) });
+      await runTick({ budgetMs: Math.max(30_000, started + 260_000 - Date.now()) });
     } catch (e) {
       console.error("runNow follow-up failed", runId, e);
     }

@@ -65,3 +65,6 @@ export function excerpt(text: string | null | undefined, max: number, focus: Reg
   }
   return used < text.length ? `${out} […]` : out;
 }
+
+/** For z.preprocess on number fields: z.coerce turns a blank field into 0, so blank becomes NaN and fails validation. */
+export const blankToNaN = (v: unknown) => (v == null || String(v).trim() === "" ? NaN : v);

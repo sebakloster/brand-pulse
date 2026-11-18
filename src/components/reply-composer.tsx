@@ -43,6 +43,7 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
   const [busy, setBusy] = useState<Busy>(null);
   const [, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkSeq = useRef(0);
 
   // Only hard rule breaks are shown; style hints stay out of the way. (Old drafts may carry retired "ai_" checks.)
   const issues = checks.filter((c) => c.level === "fail" && c.id !== "length" && !c.id.startsWith("ai_"));
@@ -69,10 +70,17 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
     });
   }
 
+  // Cancel a pending check when the composer goes away.
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
   function onEdit(v: string) {
     setText(v);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { checkText(mentionId, v).then(setChecks).catch(() => {}); }, 400);
+    const seq = ++checkSeq.current;
+    timer.current = setTimeout(() => {
+      // Responses can arrive out of order; only the newest text's checks are shown.
+      checkText(mentionId, v).then((c) => { if (seq === checkSeq.current) setChecks(c); }).catch(() => {});
+    }, 400);
   }
 
   const ownForm = (
@@ -146,9 +154,12 @@ export function ReplyComposer({ mentionId, redditUrl, draft, replied }: {
         <Button
           isDisabled={!text.trim() || replied || busy !== null}
           onPress={() => act("copy", async () => {
-            await navigator.clipboard.writeText(text);
-            await saveDraftStatus(draft.id, text, "copied");
+            // Copy and open the tab synchronously, while the click still counts as a user
+            // gesture: after an await, Safari blocks the new tab as a popup.
+            const copied = navigator.clipboard.writeText(text);
             if (redditUrl) window.open(redditUrl, "_blank", "noopener");
+            await copied;
+            await saveDraftStatus(draft.id, text, "copied");
           }, "Copied. Paste it on Reddit, then mark it as replied.")}
         >
           <Copy className="size-4" /> Copy &amp; open Reddit

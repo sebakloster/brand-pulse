@@ -6,12 +6,13 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireSession } from "@/lib/session";
 import { sendDigest } from "@/lib/email/digest";
+import { blankToNaN } from "@/lib/util";
 
 const Settings = z.object({
   emailRecipients: z.array(z.email("One of the recipients isn't a valid email address")).max(20),
   timezone: z.string().refine((tz) => { try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; } }, "Unknown time zone"),
-  digestHour: z.coerce.number().int().min(0).max(23),
-  monthlyApifyBudgetUsd: z.coerce.number().min(0).max(1000),
+  digestHour: z.preprocess(blankToNaN, z.coerce.number({ error: "Add the hour for the daily summary" }).int("The summary hour must be a whole number").min(0, "The summary hour must be between 0 and 23").max(23, "The summary hour must be between 0 and 23")),
+  monthlyApifyBudgetUsd: z.preprocess(blankToNaN, z.coerce.number({ error: "Add a monthly budget" }).min(0, "The budget can't be negative").max(1000, "The budget can be at most $1,000")),
   spikeEmails: z.boolean(),
 });
 
