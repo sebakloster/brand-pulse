@@ -1,91 +1,90 @@
 # Brand Pulse
 
-Reddit brand monitoring. Finds mentions of a brand on Reddit, shows how people feel and what needs attention (with a reason for each item), and drafts replies in the brand's voice for a person to review and post. Nothing is posted automatically.
+Brand Pulse watches Reddit for mentions of your brands. For each brand it finds what people are saying, works out how they feel, decides what needs attention and drafts a reply when one makes sense. A person always reviews and posts replies; nothing is posted automatically.
 
-## Features
+**Live demo:** https://brand-pulse-smoky.vercel.app (password protected)
 
-- **Ingestion:** Reddit search (posts, comments, thread context) through a pluggable `RedditSource` (Apify Actor or a saved dataset).
-- **Filtering:** free rule filters (bots, blocked subreddits, whole-word match, exclusion phrases, brand communities), then an LLM relevance check.
-- **Triage:** per thread: sentiment, intent, risk flags, importance P0–P3, action (reply / route to a team / monitor / ignore) and a one-line reason.
-- **Spike detection:** comment velocity against the brand's baseline, computed in code from engagement snapshots.
-- **Reply drafts:** only for items worth replying to; versioned voice guide, "say it in your words → Improve", tone checks that re-run while editing.
-- **Per-brand inbox:** pick a brand, see what needs attention ("Urgent · Pass to security", "Today · Reply suggested"), open an item, reply or mark it done. Mobile-friendly.
-- **Brands:** settings, tracking toggles, "Check Reddit now", recent checks, real cost per brand (scraper + LLM) with a monthly spend guard.
-- **Email:** daily digest and instant spike alerts.
-- **Evals:** relevance and triage scored against hand-labeled items.
+## What it does
 
-## Stack
+- **Find:** searches Reddit for each brand's search terms, every few hours.
+- **Feel:** marks each mention positive, neutral or negative.
+- **Prioritize:** sorts mentions into urgent, today, when you can and FYI, with a one-line reason for each.
+- **Draft:** writes a short reply in the brand's voice, only when replying is the right move.
+- **Alert:** emails a daily digest, plus an instant email when a thread starts blowing up.
 
-Next.js 16 (App Router) · TypeScript · Tailwind CSS · HeroUI v3 · Drizzle ORM + Postgres (Neon) · Anthropic SDK (Claude Haiku 5.5 for relevance, Sonnet 5.5 for triage and drafts) · Apify · Resend · Vercel (Functions, Cron) · Vitest.
+## How a check works
 
-## How it works
+Every check, automatic or manual, runs the same steps. The free steps run first, so the AI only sees what's worth paying for.
 
 ```
-Vercel Cron (every 15 min) / "Run now"
-        │
-        ▼
-/api/tick   lease lock, 240 s budget; every step is idempotent and resumable
-  1. collect finished scraper runs → validate (Zod) → upsert raw items + mentions → snapshots
-  2. start runs for brands that are due (spend guard)
-  3. rule filters → relevance (batched)
-  4. triage, one call per thread (structured outputs, prompt caching)
-  5. spike detection → reply drafts → spike alert emails
-/api/digest (hourly cron): one digest per local day at the configured hour
+Reddit → Scrape → Save → Rules → Relevance → Triage → Spike check → Draft → Inbox + email
+                         (code)     (AI)       (AI)      (code)      (AI)
 ```
 
-Pages read from Postgres only; LLM calls happen in the background job or on explicit user actions.
+1. **Scrape.** Apify searches Reddit for new posts and comments since the last check (14 days back on the first check), plus up to 50 comments per post for context.
+2. **Save.** Everything is stored as it arrived. Each Reddit item is saved once, so reading it again never creates duplicates.
+3. **Rules.** Plain code drops obvious noise: bots, ignored subreddits, deleted posts and phrases that mean something else.
+4. **Relevance (AI).** A small, cheap model checks whether each remaining mention is really about the brand.
+5. **Triage (AI).** A stronger model reads each thread and returns the feeling, urgency, next step (reply, send to a team, watch or ignore) and a reason.
+6. **Spike check.** Code compares how fast a thread is getting comments with the brand's usual rate. A fast thread gets flagged and triggers an instant email.
+7. **Draft (AI).** Only mentions marked "reply" get a draft, and never in a thread that's blowing up.
 
-## Getting started
+Results show up in each brand's inbox, where you can edit a draft, copy it to Reddit and mark it done.
 
-Requirements: Node 22+, a Postgres database.
+## Architecture
+
+One Next.js app on Vercel with a Postgres database.
+
+- **Pages only read from the database.** The heavy work runs in a background job, `/api/tick`, which Vercel Cron calls every 15 minutes.
+- **The job is safe to repeat.** Each step picks up whatever is still pending. If a run is cut short, the next one continues, and a lock stops two runs from overlapping.
+- **"Check Reddit now"** starts a scrape and returns right away. A small popup shows progress.
+- **`/api/digest`** runs hourly and sends the daily email once, at the configured local time.
+- **One shared password** protects the app.
+
+**Stack:** Next.js 16 · TypeScript · HeroUI v3 · Tailwind CSS v4 · Neon Postgres + Drizzle · Anthropic SDK · Apify · Resend · Vercel · Vitest
+
+## Run it locally
+
+You need Node 22+ and a Postgres database. No API keys are needed to try it: the app replays a saved Reddit dataset.
 
 ```bash
 npm install
-cp .env.example .env.local     # DATABASE_URL, APP_PASSWORD, SESSION_SECRET, CRON_SECRET
+cp .env.example .env.local     # set DATABASE_URL, APP_PASSWORD, SESSION_SECRET, CRON_SECRET
 npm run db:migrate
-npm run ingest:fixture         # load the saved Peloton dataset (no API keys needed)
+npm run ingest:fixture         # load the saved dataset
 npm run dev                    # http://localhost:3000
 ```
 
-Optional keys in `.env.local`:
+Optional keys:
 
-| Variable | Enables |
+| Variable | Turns on |
 |---|---|
-| `ANTHROPIC_API_KEY` | Relevance, triage, drafts (`npm run tick` processes the dataset) |
+| `ANTHROPIC_API_KEY` | Relevance, triage and drafts (`npm run tick` processes the data) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Daily digest and spike emails |
-| `APIFY_TOKEN` + `REDDIT_SOURCE=apify` | Live Reddit runs (otherwise "Run now" replays the saved dataset) |
+| `APIFY_TOKEN` + `REDDIT_SOURCE=apify` | Live Reddit checks instead of the saved dataset |
 
-## Scripts
+## Useful scripts
 
-| Command | Description |
+| Command | What it does |
 |---|---|
-| `npm run dev` / `build` / `start` | Next.js |
-| `npm test` | Unit tests |
-| `npm run typecheck` · `npm run lint` | Type check and lint |
-| `npm run db:generate` · `db:migrate` · `db:seed` | Drizzle migrations and seed |
-| `npm run ingest:fixture [-- --reset]` | Ingest the saved dataset and apply rule filters |
+| `npm test` · `npm run typecheck` · `npm run lint` | Tests and checks |
 | `npm run tick` | Run the background job locally until nothing is pending |
-| `npm run eval` | Score relevance and triage against `evals/labels.json` |
-| `npm run reset:ai` | Re-run the LLM steps on stored data after a prompt change |
-| `npm run demo:spike [-- --clear]` | Add or remove a simulated (labeled) spike |
+| `npm run eval` | Score the AI against the hand-labeled mentions |
+| `npm run demo:spike [-- --clear]` | Add or remove a simulated spike (labeled "demo") |
+| `npm run reset:ai` | Re-run the AI steps after a prompt change |
 | `npm run live:test` | One small live Apify run |
 
-## Project structure
+## Project layout
 
 ```
-src/
-  app/              pages (brands, brand inbox, mention, insights, settings, login), server actions, API routes
-  components/       UI components
-  db/               Drizzle schema and client
-  lib/
-    reddit/         data sources, validation, normalization
-    pipeline/       rules, ingest, relevance, triage, runs, spikes, tick, lock
-    llm/            Claude client, prompts, pricing, output cleaning
-    drafts/         draft generation and tone checks
-    email/          digest and alert rendering and sending
-    brands/         demo brand config and voice guide
-drizzle/            SQL migrations
-scripts/            CLI scripts (ingest, tick, eval, seed, …)
-evals/              labeled items and results
-fixture/            saved Reddit dataset used for demo mode, tests and evals
+src/app/            pages, server actions and API routes
+src/components/     UI components
+src/db/             database schema
+src/lib/pipeline/   rules, relevance, triage, spikes and the background job
+src/lib/llm/        Claude client and prompts
+src/lib/drafts/     reply drafts and tone checks
+src/lib/email/      digest and alert emails
+src/lib/reddit/     data sources and validation
+fixture/            saved Reddit dataset for the demo, tests and evals
+evals/              hand-labeled mentions and results
 ```
